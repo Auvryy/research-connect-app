@@ -35,11 +35,18 @@ class _HomePageState extends State<HomePage> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        leading: const Padding(
+        leading: Padding(
           padding: EdgeInsets.only(left: 15),
-          child: CircleAvatar(
-            radius: 16,
-            backgroundImage: AssetImage('assets/images/guts-image.jpeg'),
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _currentIndex = 1; //prorfile tab
+              });
+            },
+            child: const CircleAvatar(
+              radius: 16,
+              backgroundImage: AssetImage('assets/images/guts-image.jpeg'),
+            ),
           ),
         ),
         actions: [
