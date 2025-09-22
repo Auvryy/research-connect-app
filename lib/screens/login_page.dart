@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/custom_textfield.dart';
-import '../widgets/primary_button.dart  ';
+import '../widgets/primary_button.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
