@@ -59,6 +59,7 @@ class LoginPage extends StatelessWidget {
 
               Row(
                 children: const[
+                  
                   Expanded(child: Divider(thickness: 2.0, color: AppColors.primary),),
                   SizedBox(width: 10,),
                   Text(
