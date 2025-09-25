@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import '../widgets/custom_textfield.dart';
-import '../widgets/primary_button.dart  ';
+import '../../widgets/custom_textfield.dart';
+import '../../widgets/primary_button.dart';
+import 'package:inquira/constants/colors.dart';
+
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -19,18 +21,18 @@ class LoginPage extends StatelessWidget {
               const Text(
                 "Inquira",
                 style: TextStyle(
-                  fontSize: 32, 
+                  fontSize: 36, 
                   fontFamily: 'Giaza',
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 5),
               const Text(
                 "Create and share surveys, or discover insights by answering others—only on Inquira.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
-                  color: Color(0xFF4A4A4A),
+                  color: AppColors.secondary,
                 ),
               ),
               const SizedBox(height: 40),
@@ -47,9 +49,12 @@ class LoginPage extends StatelessWidget {
               PrimaryButton(
                 text: "Login",
                 onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/home');
+                  Navigator.pushReplacementNamed(context, '/register');
                 },
               ),
+
+              const SizedBox(height: 20)
+
 
             ]
           ),
