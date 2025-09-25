@@ -5,6 +5,7 @@ import '/widgets/custom_textfield.dart';
 import '/widgets/primary_button.dart';
 import 'package:inquira/widgets/secondary_button.dart';
 import 'package:inquira/constants/colors.dart';
+import 'package:inquira/widgets/toggle_login_register.dart';
 
 class CreateAccountPage extends StatefulWidget {
   const CreateAccountPage({super.key});
@@ -84,7 +85,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                       text: TextSpan(
                         style: const TextStyle(
                           color: AppColors.primary,
-                          fontSize: 12,
+                          fontSize: 13,
                         ),
                         children: [
                           const TextSpan(text: "I agree to the "),
@@ -92,7 +93,6 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                             text: "Terms & Services",
                             style: const TextStyle(
                               color: AppColors.accent1,
-                              decoration: TextDecoration.underline,
                             ),
                             recognizer: TapGestureRecognizer()
                               ..onTap = () {
@@ -105,7 +105,6 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                             text: "Privacy Policy",
                             style: const TextStyle(
                               color: AppColors.accent1,
-                              decoration: TextDecoration.underline,
                             ),
                             recognizer: TapGestureRecognizer()
                               ..onTap = () {
@@ -161,13 +160,13 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                 },
               ),
 
-              const SizedBox(height: 5),
-
-              
-
-              
-
-
+              const SizedBox(height: 10),
+              ToggleLoginRegister(
+                normalText: "Have an account?", linkText: "Login",
+                onTap: () {
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
+              )
             ],
           ),
         ),
