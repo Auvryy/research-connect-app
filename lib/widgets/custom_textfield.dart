@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:inquira/constants/colors.dart';
 class CustomTextfield extends StatelessWidget{
   final String label;
   final bool obsercure;
@@ -12,17 +12,20 @@ class CustomTextfield extends StatelessWidget{
       obscureText: obsercure,
       decoration: InputDecoration(
         labelText: label,
+        
+        filled: true,
+        fillColor:  AppColors.inputColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF151515), width: 2),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2.3),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF151515), width: 2),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2.3),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF151515), width: 2.5),
+          borderSide: const BorderSide(color: AppColors.primary , width: 2.5),
 
         ),
       ),
