@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:inquira/widgets/secondary_button.dart';
+import 'package:inquira/widgets/toggle_login_register.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/primary_button.dart';
 import 'package:inquira/constants/colors.dart';
@@ -35,7 +37,7 @@ class LoginPage extends StatelessWidget {
                   color: AppColors.secondary,
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 30),
 
               //username input
               const CustomTextfield(label: "Username"),
@@ -43,7 +45,7 @@ class LoginPage extends StatelessWidget {
 
               //password input
               const CustomTextfield(label: "Password", obsercure: true),
-              const SizedBox(height: 30),
+              const SizedBox(height: 15),
 
               //login button
               PrimaryButton(
@@ -53,8 +55,45 @@ class LoginPage extends StatelessWidget {
                 },
               ),
 
-              const SizedBox(height: 20)
+              SizedBox(height: 10),
 
+              Row(
+                children: const[
+                  
+                  Expanded(child: Divider(thickness: 2.0, color: AppColors.primary),),
+                  SizedBox(width: 10,),
+                  Text(
+                    "or",
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(width: 10,),
+                  Expanded(child: Divider(thickness: 2.0, color: AppColors.primary))
+                ],
+              ),
+
+              SizedBox(height: 10),
+
+              SecondaryButton(
+                text: "Sign in with google",
+                iconPath: 'assets/images/google-icon.png',
+                onPressed: () {
+                  print('Google clicked');
+                },
+
+              ),
+
+              SizedBox(height: 5),
+
+              ToggleLoginRegister(
+                normalText: "Don't have an account?", 
+                linkText: "Register", 
+                onTap: () {
+                  Navigator.pushReplacementNamed(context, '/register');
+                }
+              )
 
             ]
           ),
