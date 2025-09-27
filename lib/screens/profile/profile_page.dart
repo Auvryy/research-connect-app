@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
+import 'package:inquira/data/mock_survey.dart';
+import 'package:inquira/widgets/profile_survey.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -17,7 +19,8 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: AppColors.background,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Column( // wrap everything in a column
+        child: Column(
+          // wrap everything in a column
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // --- Profile Header ---
@@ -72,9 +75,15 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               child: Row(
                 children: const [
-                  Expanded(child: _StatItem(label: "Surveys Posted", value: "13")),
-                  Expanded(child: _StatItem(label: "Total Responses", value: "2.4k")),
-                  Expanded(child: _StatItem(label: "Success Rate", value: "92%")),
+                  Expanded(
+                    child: _StatItem(label: "Surveys Posted", value: "13"),
+                  ),
+                  Expanded(
+                    child: _StatItem(label: "Total Responses", value: "2.4k"),
+                  ),
+                  Expanded(
+                    child: _StatItem(label: "Success Rate", value: "92%"),
+                  ),
                 ],
               ),
             ),
@@ -103,15 +112,12 @@ class _ProfilePageState extends State<ProfilePage> {
             // --- Tab Content ---
             if (_selectedTab == 0)
               Column(
-                children: [
-                  // Later: dynamic survey list
-                  Card(
-                    child: ListTile(
-                      title: const Text("The Impact of Social Media Usage"),
-                      subtitle: const Text("359 responses • 13 days ago"),
-                    ),
-                  ),
-                ],
+                children: mockSurveys.map((survey) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: ProfileSurvey(survey: survey),
+                  );
+                }).toList(),
               )
             else
               Column(

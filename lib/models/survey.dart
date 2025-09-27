@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-//survey object
-
+/// Survey object
 class Survey {
   final String id;
   final String title;
@@ -11,6 +10,8 @@ class Survey {
   final String targetAudience;
   final String creator;
   final DateTime createdAt;
+  final bool status; // true = active, false = closed
+  int responses; // number of responses
   final List<Question> questions;
 
   Survey({
@@ -22,8 +23,15 @@ class Survey {
     required this.targetAudience,
     required this.creator,
     required this.createdAt,
+    required this.status,
     required this.questions,
+    this.responses = 0, // default to 0
   });
+
+  /// Convenience method to increment response count
+  void addResponse() {
+    responses++;
+  }
 }
 
 /// Question object
