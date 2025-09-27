@@ -13,6 +13,7 @@ final List<Survey> mockSurveys = [
     createdAt: DateTime.now(),
     questions: [],
     status: true,
+    responses: 13,
   ),
   Survey(
     id: "2",
@@ -25,6 +26,7 @@ final List<Survey> mockSurveys = [
     createdAt: DateTime.now(),
     questions: [],
     status: false,
+    responses: 205,
   ),
   Survey(
     id: "3",
@@ -37,6 +39,7 @@ final List<Survey> mockSurveys = [
     createdAt: DateTime.now(),
     questions: [],
     status: false,
+    responses: 153,
   ),
   Survey(
     id: "4",
@@ -50,5 +53,6 @@ final List<Survey> mockSurveys = [
     createdAt: DateTime.now(),
     questions: [],
     status: true,
+    responses: 18,
   ),
 ];

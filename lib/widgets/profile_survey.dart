@@ -43,7 +43,7 @@ class ProfileSurvey extends StatelessWidget {
                 const Icon(Icons.people, size: 16, color: Colors.black54),
                 const SizedBox(width: 4),
                 Text(
-                  "$responses Responses",
+                  survey.responses.toString() + " Responses",
                   style: const TextStyle(fontSize: 13, color: Colors.black87),
                 ),
                 const SizedBox(width: 16),
