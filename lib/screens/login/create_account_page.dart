@@ -156,7 +156,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                 text: "Continue with Google",
                 iconPath: "assets/images/google-icon.png",
                 onPressed: () {
-                  print("Google clicked");
+                  Navigator.pushReplacementNamed(context, '/home');
                 },
               ),
 
