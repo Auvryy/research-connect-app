@@ -19,7 +19,7 @@ class ProfileSurvey extends StatelessWidget {
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 3),
       elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -40,19 +40,19 @@ class ProfileSurvey extends StatelessWidget {
             // Responses + Date
             Row(
               children: [
-                const Icon(Icons.people, size: 16, color: Colors.black54),
+                const Icon(Icons.people, size: 16, color: AppColors.primary),
                 const SizedBox(width: 4),
                 Text(
                   survey.responses.toString() + " Responses",
-                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  style: const TextStyle(fontSize: 13, color: AppColors.primary),
                 ),
                 const SizedBox(width: 16),
                 const Icon(Icons.calendar_month,
-                    size: 16, color: Colors.black54),
+                    size: 16, color: AppColors.primary),
                 const SizedBox(width: 4),
                 Text(
                   formattedDate,
-                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  style: const TextStyle(fontSize: 13, color: AppColors.primary),
                 ),
               ],
             ),
