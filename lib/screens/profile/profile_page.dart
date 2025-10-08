@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/mock_survey.dart';
 import 'package:inquira/widgets/profile_survey.dart';
+import 'package:inquira/widgets/profile_info_item.dart';
+import 'package:inquira/widgets/confirmation_dialog.dart';
+import 'package:inquira/data/user_info.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -34,9 +37,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(width: 16), // spacing between image and text
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
-                      "Dr. Andy Sarne",
+                      currentUser.name,
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -45,7 +48,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      "Psychology Undergraduate",
+                      currentUser.course,
                       style: TextStyle(
                         fontSize: 14,
                         color: AppColors.secondary,
@@ -53,7 +56,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      "Laguna State Polytechnic University",
+                      currentUser.school,
                       style: TextStyle(
                         fontSize: 14,
                         color: AppColors.secondary,
@@ -82,7 +85,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: _StatItem(label: "Total Responses", value: "2.4k"),
                   ),
                   Expanded(
-                    child: _StatItem(label: "Success Rate", value: "92%"),
+                    child: _StatItem(label: "Response Rate", value: "92%"),
                   ),
                 ],
               ),
@@ -121,11 +124,56 @@ class _ProfilePageState extends State<ProfilePage> {
               )
             else
               Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text("Full Name: Dr. Andy Sarne"),
-                  Text("Email: andy@example.com"),
-                  // etc.
+                children: [
+                  ProfileInfoItem(
+                    icon: Icons.person,
+                    label: "Full Name",
+                    value: currentUser.name,
+                    iconColor: AppColors.blue,
+                    onEdit: () async {
+                      final confirmed = await showConfirmationDialog(
+                        context,
+                        title: "Confirm Edit",
+                        message: "Are you sure you want to edit your name?",
+                      );
+
+                      if (confirmed) {
+                        print("User wants to edit name!");
+                        // 👉 here you can open another dialog with a TextField
+                        // or update the value directly
+                      } else {
+                        print("User cancelled editing.");
+                      }
+                    },
+                  ),
+                  ProfileInfoItem(
+                    icon: Icons.mail,
+                    label: "Email",
+                    value: currentUser.email,
+                    iconColor: AppColors.purple,
+                    onEdit: () => print("hello"),
+                  ),
+                  ProfileInfoItem(
+                    icon: Icons.phone,
+                    label: "Phone Number",
+                    value: currentUser.phone,
+                    iconColor: AppColors.green,
+                    onEdit: () => print("hello"),
+                  ),
+                  ProfileInfoItem(
+                    icon: Icons.school,
+                    label: "School",
+                    value: currentUser.school,
+                    iconColor: AppColors.orange,
+                    onEdit: () => print("hello"),
+                  ),
+                  ProfileInfoItem(
+                    icon: Icons.book,
+                    label: "Course",
+                    value: currentUser.course,
+                    iconColor: AppColors.pink,
+                    onEdit: () => print("hello"),
+                  ),
                 ],
               ),
           ],
