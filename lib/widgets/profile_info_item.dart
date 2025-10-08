@@ -5,18 +5,16 @@ class ProfileInfoItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-  final Color iconColor; 
-  final VoidCallback? onEdit;
-
+  final Color iconColor;
+  
   const ProfileInfoItem({
     super.key,
     required this.icon,
     required this.label,
     required this.value,
     required this.iconColor,
-    this.onEdit,
   });
-
+  
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -28,7 +26,6 @@ class ProfileInfoItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // --- Icon container ---
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -38,8 +35,6 @@ class ProfileInfoItem extends StatelessWidget {
             child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 12),
-
-          // --- Label + Value ---
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,13 +55,6 @@ class ProfileInfoItem extends StatelessWidget {
               ],
             ),
           ),
-
-          // --- Edit button (if provided) ---
-          if (onEdit != null)
-            IconButton(
-              icon: const Icon(Icons.edit, size: 20, color: AppColors.primary),
-              onPressed: onEdit,
-            ),
         ],
       ),
     );

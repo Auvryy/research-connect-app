@@ -130,49 +130,30 @@ class _ProfilePageState extends State<ProfilePage> {
                     label: "Full Name",
                     value: currentUser.name,
                     iconColor: AppColors.blue,
-                    onEdit: () async {
-                      final confirmed = await showConfirmationDialog(
-                        context,
-                        title: "Confirm Edit",
-                        message: "Are you sure you want to edit your name?",
-                      );
-
-                      if (confirmed) {
-                        print("User wants to edit name!");
-                        // 👉 here you can open another dialog with a TextField
-                        // or update the value directly
-                      } else {
-                        print("User cancelled editing.");
-                      }
-                    },
                   ),
                   ProfileInfoItem(
                     icon: Icons.mail,
                     label: "Email",
                     value: currentUser.email,
                     iconColor: AppColors.purple,
-                    onEdit: () => print("hello"),
                   ),
                   ProfileInfoItem(
                     icon: Icons.phone,
                     label: "Phone Number",
                     value: currentUser.phone,
                     iconColor: AppColors.green,
-                    onEdit: () => print("hello"),
                   ),
                   ProfileInfoItem(
                     icon: Icons.school,
                     label: "School",
                     value: currentUser.school,
                     iconColor: AppColors.orange,
-                    onEdit: () => print("hello"),
                   ),
                   ProfileInfoItem(
                     icon: Icons.book,
                     label: "Course",
                     value: currentUser.course,
                     iconColor: AppColors.pink,
-                    onEdit: () => print("hello"),
                   ),
                 ],
               ),
