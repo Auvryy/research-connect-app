@@ -90,6 +90,11 @@ class _SurveyCardState extends State<SurveyCard> {
                     borderRadius: BorderRadius.circular(20), // border radius
                     side: BorderSide.none, // no border
                   ),
+                  visualDensity: const VisualDensity(
+                    horizontal: 0,
+                    vertical: -4,
+                  ),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   labelPadding: const EdgeInsets.symmetric(
                     horizontal: 4,
                     vertical: 0,
@@ -104,7 +109,10 @@ class _SurveyCardState extends State<SurveyCard> {
               // DESCRIPTION (only when expanded)
               Text(
                 survey.description,
-                style: const TextStyle(fontSize: 14, color: AppColors.primaryText),
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppColors.primaryText,
+                ),
               ),
             ],
 
