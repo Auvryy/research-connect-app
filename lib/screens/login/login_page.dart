@@ -4,10 +4,52 @@ import 'package:inquira/widgets/toggle_login_register.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/primary_button.dart';
 import 'package:inquira/constants/colors.dart';
+import 'package:inquira/data/api/dio_client.dart'; // ✅ import our DioClient
 
-
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _loading = false;
+
+  Future<void> _loginUser() async {
+    setState(() => _loading = true);
+
+    try {
+      final response = await DioClient().post(
+        "/user/login",
+        data: {
+          "username": _usernameController.text.trim(),
+          "password": _passwordController.text.trim(),
+        },
+      );
+
+      if (response["ok"] == true) {
+        // success
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Login successful!")),
+        );
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        // failed login
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response["message"].toString())),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +65,7 @@ class LoginPage extends StatelessWidget {
               const Text(
                 "Inquira",
                 style: TextStyle(
-                  fontSize: 36, 
+                  fontSize: 36,
                   fontFamily: 'Giaza',
                   fontWeight: FontWeight.bold,
                 ),
@@ -38,30 +80,19 @@ class LoginPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 30),
-
-              //username input
-              const CustomTextfield(label: "Username"),
+              CustomTextfield(label: "Username", controller: _usernameController),
               const SizedBox(height: 20),
-
-              //password input
-              const CustomTextfield(label: "Password", obsercure: true),
+              CustomTextfield(label: "Password", obsercure: true, controller: _passwordController),
               const SizedBox(height: 15),
-
-              //login button
               PrimaryButton(
-                text: "Login",
-                onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/register');
-                },
+                text: _loading ? "Logging in..." : "Login",
+                onPressed: _loading ? null : _loginUser,
               ),
-
-              SizedBox(height: 10),
-
-              Row(
-                children: const[
-                  
-                  Expanded(child: Divider(thickness: 2.0, color: AppColors.primary),),
-                  SizedBox(width: 10,),
+              const SizedBox(height: 10),
+              const Row(
+                children: [
+                  Expanded(child: Divider(thickness: 2.0, color: AppColors.primary)),
+                  SizedBox(width: 10),
                   Text(
                     "or",
                     style: TextStyle(
@@ -69,37 +100,30 @@ class LoginPage extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(width: 10,),
-                  Expanded(child: Divider(thickness: 2.0, color: AppColors.primary))
+                  SizedBox(width: 10),
+                  Expanded(child: Divider(thickness: 2.0, color: AppColors.primary)),
                 ],
               ),
-
-              SizedBox(height: 10),
-
+              const SizedBox(height: 10),
               SecondaryButton(
-                text: "Sign in with google",
+                text: "Sign in with Google",
                 iconPath: 'assets/images/google-icon.png',
                 onPressed: () {
                   print('Google clicked');
                 },
-
               ),
-
-              SizedBox(height: 5),
-
+              const SizedBox(height: 5),
               ToggleLoginRegister(
-                normalText: "Don't have an account?", 
-                linkText: "Register", 
+                normalText: "Don't have an account?",
+                linkText: "Register",
                 onTap: () {
                   Navigator.pushReplacementNamed(context, '/register');
-                }
-              )
-
-            ]
+                },
+              ),
+            ],
           ),
         ),
       ),
-
     );
   }
 }

@@ -1,4 +1,3 @@
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '/widgets/custom_textfield.dart';
@@ -6,6 +5,7 @@ import '/widgets/primary_button.dart';
 import 'package:inquira/widgets/secondary_button.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/widgets/toggle_login_register.dart';
+import 'package:inquira/data/api/dio_client.dart';
 
 class CreateAccountPage extends StatefulWidget {
   const CreateAccountPage({super.key});
@@ -16,9 +16,114 @@ class CreateAccountPage extends StatefulWidget {
 
 class _CreateAccountPageState extends State<CreateAccountPage> {
   bool _agreedToTerms = false;
+  bool _loading = false;
+
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
+  String? _usernameError;
+  String? _passwordError;
+  String? _confirmPasswordError;
+
+  bool get _isFormValid {
+    return _usernameError == null &&
+        _passwordError == null &&
+        _confirmPasswordError == null &&
+        _usernameController.text.trim().isNotEmpty &&
+        _passwordController.text.trim().isNotEmpty &&
+        _confirmPasswordController.text.trim().isNotEmpty &&
+        _agreedToTerms;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _usernameController.addListener(_validateUsername);
+    _passwordController.addListener(_validatePassword);
+    _confirmPasswordController.addListener(_validateConfirmPassword);
+  }
+
+  void _validateUsername() {
+    final username = _usernameController.text.trim();
+    if (username.isEmpty) {
+      _usernameError = "Username is required";
+    } else if (username.length < 4) {
+      _usernameError = "Username must be at least 4 characters";
+    } else if (username.length > 36) {
+      _usernameError = "Username must not exceed 36 characters";
+    } else {
+      _usernameError = null;
+    }
+    setState(() {});
+  }
+
+  void _validatePassword() {
+    final password = _passwordController.text.trim();
+    final regex = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,36}$');
+
+    if (password.isEmpty) {
+      _passwordError = "Password is required";
+    } else if (!regex.hasMatch(password)) {
+      _passwordError =
+          "Must be 8–36 chars, include uppercase, lowercase, and a digit";
+    } else {
+      _passwordError = null;
+    }
+    _validateConfirmPassword();
+    setState(() {});
+  }
+
+  void _validateConfirmPassword() {
+    final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+    if (confirmPassword.isEmpty) {
+      _confirmPasswordError = "Please confirm your password";
+    } else if (password != confirmPassword) {
+      _confirmPasswordError = "Passwords do not match";
+    } else {
+      _confirmPasswordError = null;
+    }
+    setState(() {});
+  }
+
+  Future<void> _registerUser() async {
+    if (!_isFormValid) return;
+
+    setState(() => _loading = true);
+    try {
+      final response = await DioClient().post(
+        "/user/register",
+        data: {
+          "username": _usernameController.text.trim(),
+          "password": _passwordController.text.trim(),
+        },
+      );
+
+      if (response["ok"] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Account created successfully!")),
+        );
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response["message"].toString())),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isButtonEnabled = _isFormValid && !_loading;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -36,40 +141,81 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 5,),
+              const SizedBox(height: 5),
               const Text(
-                "Create and share surveys, or discover insights by answering others-only on Inquira.",
+                "Create and share surveys, or discover insights by answering others — only on Inquira.",
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.secondary,
+                style: TextStyle(fontSize: 16, color: AppColors.secondary),
+              ),
+              const SizedBox(height: 30),
+
+              // Username
+              CustomTextfield(
+                label: "Username",
+                controller: _usernameController,
+              ),
+              if (_usernameError != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      _usernameError!,
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
                 ),
+              const SizedBox(height: 20),
+
+              // Password
+              CustomTextfield(
+                label: "Password",
+                obsercure: true,
+                controller: _passwordController,
               ),
-              const SizedBox(height:20),
+              if (_passwordError != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      _passwordError!,
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 20),
 
-              //first name + last name
-              Row(
-                children: const [
-                  Expanded(child: CustomTextfield(label: "First name")),
-                  SizedBox(width: 10),
-                  Expanded(child: CustomTextfield(label: "Last name")),
-                ],
+              // Confirm Password
+              CustomTextfield(
+                label: "Confirm Password",
+                obsercure: true,
+                controller: _confirmPasswordController,
               ),
-              const SizedBox(height: 20),
+              if (_confirmPasswordError != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      _confirmPasswordError!,
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
 
-              //email
-              const CustomTextfield(label: "Email"),
-              const SizedBox(height: 20),
+              const SizedBox(height: 15),
 
-              //password1
-              const CustomTextfield(label: "Create password", obsercure: true),
-              const SizedBox(height: 20),
-
-              //confirm pass
-              const CustomTextfield(label: "Confirm password", obsercure: true),
-              const SizedBox(height: 0),
-
-              
+              // Checkbox
               Row(
                 children: [
                   Checkbox(
@@ -91,53 +237,40 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                           const TextSpan(text: "I agree to the "),
                           TextSpan(
                             text: "Terms & Services",
-                            style: const TextStyle(
-                              color: AppColors.accent1,
-                            ),
-                            recognizer: TapGestureRecognizer()
-                              ..onTap = () {
-                                //function
-                                print("Terms & Services clicked");
-                              },
+                            style:
+                                const TextStyle(color: AppColors.accent1),
+                            recognizer: TapGestureRecognizer()..onTap = () {},
                           ),
                           const TextSpan(text: " and "),
                           TextSpan(
                             text: "Privacy Policy",
-                            style: const TextStyle(
-                              color: AppColors.accent1,
-                            ),
-                            recognizer: TapGestureRecognizer()
-                              ..onTap = () {
-                                //function tap
-                                print("Privacy policy clicked");
-                              }
-
-                          )
-                        ]
+                            style:
+                                const TextStyle(color: AppColors.accent1),
+                            recognizer: TapGestureRecognizer()..onTap = () {},
+                          ),
+                        ],
                       ),
                     ),
-                    
                   ),
                 ],
               ),
-              const SizedBox(height: 0),
 
-              // Create Account button (disabled if unchecked)
+              const SizedBox(height: 15),
+
+              // Button
               PrimaryButton(
-                text: "Create Account",
-                onPressed: _agreedToTerms
-                    ? () {
-                        Navigator.pushReplacementNamed(context, '/login');
-                      }
-                    : null, // disable button if not checked
+                text: _loading ? "Creating..." : "Create Account",
+                onPressed: isButtonEnabled ? _registerUser : null,
               ),
 
-              const SizedBox(height: 5,),
+              const SizedBox(height: 10),
 
-              Row(
-                children: const[
-                  Expanded(child: Divider(thickness: 2.0, color: AppColors.primary),),
-                  SizedBox(width: 10,),
+              const Row(
+                children: [
+                  Expanded(
+                      child:
+                          Divider(thickness: 2.0, color: AppColors.primary)),
+                  SizedBox(width: 10),
                   Text(
                     "or",
                     style: TextStyle(
@@ -145,28 +278,30 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(width: 10,),
-                  Expanded(child: Divider(thickness: 2.0, color: AppColors.primary))
+                  SizedBox(width: 10),
+                  Expanded(
+                      child:
+                          Divider(thickness: 2.0, color: AppColors.primary)),
                 ],
               ),
 
-              const SizedBox(height: 5),
+              const SizedBox(height: 10),
 
               SecondaryButton(
                 text: "Continue with Google",
                 iconPath: "assets/images/google-icon.png",
-                onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/home');
-                },
+                onPressed: () {},
               ),
 
               const SizedBox(height: 10),
+
               ToggleLoginRegister(
-                normalText: "Have an account?", linkText: "Login",
+                normalText: "Have an account?",
+                linkText: "Login",
                 onTap: () {
                   Navigator.pushReplacementNamed(context, '/login');
-                }
-              )
+                },
+              ),
             ],
           ),
         ),
