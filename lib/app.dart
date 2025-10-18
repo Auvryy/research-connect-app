@@ -1,6 +1,5 @@
-
 import 'package:flutter/material.dart';
-import 'package:inquira/screens/login/create_account_page.dart';
+import 'screens/login/create_account_page.dart';
 import 'screens/login/login_page.dart';
 import 'screens/home/home_page.dart';
 
