@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/user_info.dart';
-import 'package:inquira/data/api/auth_api.dart';
-import 'package:inquira/data/api/dio_client.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -41,7 +39,9 @@ class _SettingsPageState extends State<SettingsPage> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-            decoration: BoxDecoration(color: AppColors.secondaryBG),
+            decoration: BoxDecoration(
+              color: AppColors.secondaryBG,
+            ),
             child: Column(
               children: [
                 // Profile Image
@@ -131,10 +131,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   leading: Icon(Icons.account_circle, color: AppColors.primary),
                   title: const Text("Account"),
                   subtitle: const Text("Manage your account"),
-                  trailing: Icon(
-                    Icons.chevron_right,
-                    color: AppColors.secondary,
-                  ),
+                  trailing: Icon(Icons.chevron_right, color: AppColors.secondary),
                   onTap: () {
                     // TODO: navigate to account page
                   },
@@ -144,10 +141,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   leading: Icon(Icons.privacy_tip, color: AppColors.primary),
                   title: const Text("Privacy"),
                   subtitle: const Text("Manage privacy settings"),
-                  trailing: Icon(
-                    Icons.chevron_right,
-                    color: AppColors.secondary,
-                  ),
+                  trailing: Icon(Icons.chevron_right, color: AppColors.secondary),
                   onTap: () {
                     // TODO: navigate to privacy page
                   },
@@ -166,58 +160,16 @@ class _SettingsPageState extends State<SettingsPage> {
                       builder: (BuildContext context) {
                         return AlertDialog(
                           title: const Text("Log Out"),
-                          content: const Text(
-                            "Are you sure you want to log out?",
-                          ),
+                          content: const Text("Are you sure you want to log out?"),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.of(context).pop(),
                               child: const Text("Cancel"),
                             ),
                             TextButton(
-                              onPressed: () async {
-                                Navigator.of(
-                                  context,
-                                ).pop(); // close the dialog first
-
-                                try {
-                                  final response = await AuthAPI.logout();
-
-                                  if (response["ok"] == true) {
-                                    // clear local cookies/session
-                                    DioClient.cookieJar.deleteAll();
-
-                                    // show confirmation
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          "Logged out successfully",
-                                        ),
-                                      ),
-                                    );
-
-                                    // navigate back to login screen and clear previous pages
-                                    Navigator.pushNamedAndRemoveUntil(
-                                      context,
-                                      '/login',
-                                      (route) => false,
-                                    );
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          response["message"].toString(),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("Logout failed: $e"),
-                                    ),
-                                  );
-                                }
+                              onPressed: () {
+                                // TODO: log out user
+                                Navigator.of(context).pop();
                               },
                               child: const Text(
                                 "Log Out",
