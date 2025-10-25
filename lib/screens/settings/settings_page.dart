@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/user_info.dart';
+import 'package:inquira/data/api/auth_api.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -167,9 +168,26 @@ class _SettingsPageState extends State<SettingsPage> {
                               child: const Text("Cancel"),
                             ),
                             TextButton(
-                              onPressed: () {
-                                // TODO: log out user
-                                Navigator.of(context).pop();
+                              onPressed: () async {
+                                try {
+                                  await AuthAPI.logout();
+                                  // Close the dialog
+                                  Navigator.of(context).pop();
+                                  // Navigate to login page and remove all previous routes
+                                  Navigator.of(context).pushNamedAndRemoveUntil(
+                                    '/login',
+                                    (Route<dynamic> route) => false,
+                                  );
+                                } catch (e) {
+                                  // Show error message if logout fails
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Failed to logout: ${e.toString()}'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  Navigator.of(context).pop();
+                                }
                               },
                               child: const Text(
                                 "Log Out",
