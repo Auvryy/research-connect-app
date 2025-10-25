@@ -56,21 +56,13 @@ class SurveyReviewPage extends StatelessWidget {
       case QuestionType.checkbox:
         return 'Checkbox';
       case QuestionType.textResponse:
-        return 'Text Response';
+        return 'Short Text';
       case QuestionType.longTextResponse:
-        return 'Long Text Response';
+        return 'Long Text';
       case QuestionType.ratingScale:
-        return 'Rating Scale';
+        return 'Rating (Stars)';
       case QuestionType.dropdown:
         return 'Dropdown';
-      case QuestionType.imageChoice:
-        return 'Image Choice';
-      case QuestionType.fileUpload:
-        return 'File Upload';
-      case QuestionType.matrix:
-        return 'Matrix';
-      case QuestionType.ranking:
-        return 'Ranking';
     }
   }
 

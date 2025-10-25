@@ -29,8 +29,8 @@ class QuestionTypeSelector extends StatelessWidget {
               return _QuestionTypeCard(
                 type: type,
                 onTap: () {
-                  Navigator.pop(context);
                   onTypeSelected(type);
+                  Navigator.pop(context);
                 },
               );
             }).toList(),
@@ -57,21 +57,13 @@ class _QuestionTypeCard extends StatelessWidget {
       case QuestionType.checkbox:
         return 'Checkbox';
       case QuestionType.textResponse:
-        return 'Text Response';
+        return 'Short Text';
       case QuestionType.longTextResponse:
-        return 'Long Text Response';
+        return 'Long Text';
       case QuestionType.ratingScale:
-        return 'Rating Scale';
+        return 'Rating (Stars)';
       case QuestionType.dropdown:
         return 'Dropdown';
-      case QuestionType.imageChoice:
-        return 'Image Choice';
-      case QuestionType.fileUpload:
-        return 'File Upload';
-      case QuestionType.matrix:
-        return 'Matrix';
-      case QuestionType.ranking:
-        return 'Ranking';
     }
   }
 
@@ -89,14 +81,6 @@ class _QuestionTypeCard extends StatelessWidget {
         return Icons.star;
       case QuestionType.dropdown:
         return Icons.arrow_drop_down_circle;
-      case QuestionType.imageChoice:
-        return Icons.image;
-      case QuestionType.fileUpload:
-        return Icons.upload_file;
-      case QuestionType.matrix:
-        return Icons.grid_on;
-      case QuestionType.ranking:
-        return Icons.format_list_numbered;
     }
   }
 

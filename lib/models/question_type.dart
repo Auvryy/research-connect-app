@@ -5,10 +5,6 @@ enum QuestionType {
   longTextResponse,
   ratingScale,
   dropdown,
-  imageChoice,
-  fileUpload,
-  matrix,
-  ranking,
 }
 
 extension QuestionTypeExtension on QuestionType {
