@@ -3,7 +3,6 @@ import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/mock_survey.dart';
 import 'package:inquira/widgets/profile_survey.dart';
 import 'package:inquira/widgets/profile_info_item.dart';
-import 'package:inquira/widgets/confirmation_dialog.dart';
 import 'package:inquira/data/user_info.dart';
 
 class ProfilePage extends StatefulWidget {

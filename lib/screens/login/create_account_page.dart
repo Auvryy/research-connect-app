@@ -173,7 +173,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
               const SizedBox(height: 30),
 
               // Username
-              CustomTextfield(
+              CustomTextField(
                 label: "Username",
                 controller: _usernameController,
               ),
@@ -194,9 +194,9 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
               const SizedBox(height: 20),
 
               // Password
-              CustomTextfield(
+              CustomTextField(
                 label: "Password",
-                obsercure: true,
+                obscureText: true,
                 controller: _passwordController,
               ),
               if (_passwordError != null)
@@ -216,9 +216,9 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
               const SizedBox(height: 20),
 
               // Confirm Password
-              CustomTextfield(
+              CustomTextField(
                 label: "Confirm Password",
-                obsercure: true,
+                obscureText: true,
                 controller: _confirmPasswordController,
               ),
               if (_confirmPasswordError != null)

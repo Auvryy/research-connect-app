@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:inquira/widgets/custom_choice_chip.dart';
-import 'package:inquira/models/survey.dart';
 import 'package:inquira/widgets/survey_card.dart';
 import 'package:inquira/data/mock_survey.dart';
 
@@ -36,25 +35,33 @@ class _HomeFeedState extends State<HomeFeed> {
               CustomChoiceChip(
                 label: "All",
                 selected: selectedFilter == "All",
-                onSelected: () => setState(() => selectedFilter = "All"),
+                onSelected: (selected) {
+                  if (selected) setState(() => selectedFilter = "All");
+                },
               ),
               const SizedBox(width: 8),
               CustomChoiceChip(
                 label: "Business",
                 selected: selectedFilter == "Business",
-                onSelected: () => setState(() => selectedFilter = "Business"),
+                onSelected: (selected) {
+                  if (selected) setState(() => selectedFilter = "Business");
+                },
               ),
               const SizedBox(width: 8),
               CustomChoiceChip(
                 label: "Technology",
                 selected: selectedFilter == "Technology",
-                onSelected: () => setState(() => selectedFilter = "Technology"),
+                onSelected: (selected) {
+                  if (selected) setState(() => selectedFilter = "Technology");
+                },
               ),
               const SizedBox(width: 8),
               CustomChoiceChip(
                 label: "Humanities",
                 selected: selectedFilter == "Humanities",
-                onSelected: () => setState(() => selectedFilter = "Humanities"),
+                onSelected: (selected) {
+                  if (selected) setState(() => selectedFilter = "Humanities");
+                },
               ),
               const SizedBox(width: 10),
             ],

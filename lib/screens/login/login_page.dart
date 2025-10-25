@@ -85,9 +85,9 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 30),
-              CustomTextfield(label: "Username", controller: _usernameController),
+              CustomTextField(label: "Username", controller: _usernameController),
               const SizedBox(height: 20),
-              CustomTextfield(label: "Password", obsercure: true, controller: _passwordController),
+              CustomTextField(label: "Password", obscureText: true, controller: _passwordController),
               const SizedBox(height: 15),
               PrimaryButton(
                 text: _loading ? "Logging in..." : "Login",

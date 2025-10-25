@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:inquira/constants/colors.dart';
+import 'package:inquira/screens/add/create_survey_page.dart';
 
 // Import your new pages
 import 'package:inquira/screens/home/home_feed.dart';
@@ -29,7 +30,7 @@ class _HomePageState extends State<HomePage> {
       // AddSurvey → new page without bottom nav
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const AddSurveyPage()),
+        MaterialPageRoute(builder: (context) => const CreateSurveyPage()),
       );
     } else if (index == 3) {
       // Settings → new page without bottom nav

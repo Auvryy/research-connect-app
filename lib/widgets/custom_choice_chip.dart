@@ -5,7 +5,7 @@ import 'package:inquira/constants/colors.dart';
 class CustomChoiceChip extends StatelessWidget{
   final String label;
   final bool selected;
-  final VoidCallback onSelected;
+  final Function(bool) onSelected;
   final String? svgAsset;
 
   const CustomChoiceChip({
@@ -14,7 +14,6 @@ class CustomChoiceChip extends StatelessWidget{
     required this.selected,
     required this.onSelected,
     this.svgAsset,
-
   });
 
   @override
@@ -42,7 +41,7 @@ class CustomChoiceChip extends StatelessWidget{
         ],
       ),
       selected: selected,
-      onSelected: (_) => onSelected(),
+      onSelected: onSelected,
       backgroundColor: AppColors.background,
       selectedColor: AppColors.primary,
       shadowColor: Colors.black26,

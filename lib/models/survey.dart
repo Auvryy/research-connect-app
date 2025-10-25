@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
+import 'question_type.dart';
 
-/// Survey object
+/// Survey object representing a survey in the system
 class Survey {
   final String id;
   final String title;
@@ -32,6 +32,40 @@ class Survey {
   void addResponse() {
     responses++;
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'timeToComplete': timeToComplete,
+      'tags': tags,
+      'targetAudience': targetAudience,
+      'creator': creator,
+      'createdAt': createdAt.toIso8601String(),
+      'status': status,
+      'responses': responses,
+      'questions': questions.map((q) => q.toJson()).toList(),
+    };
+  }
+
+  factory Survey.fromJson(Map<String, dynamic> json) {
+    return Survey(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      description: json['description'] as String,
+      timeToComplete: json['timeToComplete'] as int,
+      tags: List<String>.from(json['tags']),
+      targetAudience: json['targetAudience'] as String,
+      creator: json['creator'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      status: json['status'] as bool,
+      responses: json['responses'] as int,
+      questions: (json['questions'] as List)
+          .map((q) => Question.fromJson(q as Map<String, dynamic>))
+          .toList(),
+    );
+  }
 }
 
 /// Question object
@@ -49,14 +83,26 @@ class Question {
     this.required = false,
     this.options,
   });
-}
 
-/// Question types supported
-enum QuestionType {
-  multipleChoice,
-  checkbox,
-  textResponse,
-  longTextResponse,
-  ratingScale,
-  dropdown,
+  Map<String, dynamic> toJson() {
+    return {
+      'questionId': questionId,
+      'text': text,
+      'type': type.toJson(),
+      'required': required,
+      'options': options,
+    };
+  }
+
+  factory Question.fromJson(Map<String, dynamic> json) {
+    return Question(
+      questionId: json['questionId'] as String,
+      text: json['text'] as String,
+      type: QuestionTypeExtension.fromJson(json['type'] as String),
+      required: json['required'] as bool,
+      options: json['options'] != null
+          ? List<String>.from(json['options'])
+          : null,
+    );
+  }
 }
