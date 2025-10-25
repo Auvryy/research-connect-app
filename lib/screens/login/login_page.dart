@@ -4,7 +4,7 @@ import 'package:inquira/widgets/toggle_login_register.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/primary_button.dart';
 import 'package:inquira/constants/colors.dart';
-import 'package:inquira/data/api/dio_client.dart'; // ✅ import our DioClient
+import 'package:inquira/data/api/auth_api.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -19,15 +19,20 @@ class _LoginPageState extends State<LoginPage> {
   bool _loading = false;
 
   Future<void> _loginUser() async {
+    if (_usernameController.text.trim().isEmpty || 
+        _passwordController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter both username and password")),
+      );
+      return;
+    }
+
     setState(() => _loading = true);
 
     try {
-      final response = await DioClient().post(
-        "/user/login",
-        data: {
-          "username": _usernameController.text.trim(),
-          "password": _passwordController.text.trim(),
-        },
+      final response = await AuthAPI.login(
+        _usernameController.text.trim(),
+        _passwordController.text.trim(),
       );
 
       if (response["ok"] == true) {
@@ -39,12 +44,12 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         // failed login
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response["message"].toString())),
+          SnackBar(content: Text(response["message"] ?? "Login failed")),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
+        SnackBar(content: Text(e.toString())),
       );
     } finally {
       setState(() => _loading = false);
