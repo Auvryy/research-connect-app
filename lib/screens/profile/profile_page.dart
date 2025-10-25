@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
-import 'package:inquira/data/mock_survey.dart';
 import 'package:inquira/widgets/profile_survey.dart';
 import 'package:inquira/widgets/profile_info_item.dart';
 import 'package:inquira/data/user_info.dart';
+import 'package:inquira/data/survey_service.dart';
+import 'package:inquira/models/survey.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -14,6 +15,37 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   int _selectedTab = 0; // 0 = My Surveys, 1 = Profile Information
+  List<Survey> _userSurveys = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserSurveys();
+  }
+
+  Future<void> _loadUserSurveys() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // Get current user ID
+      final userId = await SurveyService.getCurrentUserId();
+      
+      // Load user's surveys from local storage
+      final surveys = await SurveyService.getUserSurveys(userId);
+      
+      setState(() {
+        _userSurveys = surveys;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading user surveys: $e');
+      setState(() {
+        _userSurveys = [];
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,15 +108,18 @@ class _ProfilePageState extends State<ProfilePage> {
                 borderRadius: BorderRadius.circular(16), // rounded corners
               ),
               child: Row(
-                children: const [
+                children: [
                   Expanded(
-                    child: _StatItem(label: "Surveys Posted", value: "13"),
+                    child: _StatItem(
+                      label: "Surveys Posted",
+                      value: _userSurveys.length.toString(),
+                    ),
                   ),
-                  Expanded(
-                    child: _StatItem(label: "Total Responses", value: "2.4k"),
+                  const Expanded(
+                    child: _StatItem(label: "Total Responses", value: "0"),
                   ),
-                  Expanded(
-                    child: _StatItem(label: "Response Rate", value: "92%"),
+                  const Expanded(
+                    child: _StatItem(label: "Response Rate", value: "0%"),
                   ),
                 ],
               ),
@@ -113,14 +148,53 @@ class _ProfilePageState extends State<ProfilePage> {
 
             // --- Tab Content ---
             if (_selectedTab == 0)
-              Column(
-                children: mockSurveys.map((survey) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12.0),
-                    child: ProfileSurvey(survey: survey),
-                  );
-                }).toList(),
-              )
+              _isLoading
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : _userSurveys.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.quiz_outlined,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No surveys yet',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Create your first survey to get started!',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Column(
+                        children: _userSurveys.map((survey) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: ProfileSurvey(survey: survey),
+                          );
+                        }).toList(),
+                      )
             else
               Column(
                 children: [

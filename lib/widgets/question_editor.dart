@@ -87,12 +87,24 @@ class _QuestionEditorState extends State<QuestionEditor> {
   }
 
   Future<void> _pickImage() async {
+    // Check if video already exists (limit to one media)
+    if (widget.question.videoUrl != null && widget.question.videoUrl!.isNotEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please remove the video first. Only one media item allowed per question.'),
+            backgroundColor: AppColors.error,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+    
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
-        setState(() {
-          _updateQuestion(imageUrl: image.path);
-        });
+        _updateQuestion(imageUrl: image.path, videoUrl: '');
       }
     } catch (e) {
       if (mounted) {
@@ -107,12 +119,24 @@ class _QuestionEditorState extends State<QuestionEditor> {
   }
 
   Future<void> _pickVideo() async {
+    // Check if image already exists (limit to one media)
+    if (widget.question.imageUrl != null && widget.question.imageUrl!.isNotEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please remove the image first. Only one media item allowed per question.'),
+            backgroundColor: AppColors.error,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+    
     try {
       final XFile? video = await _picker.pickVideo(source: ImageSource.gallery);
       if (video != null) {
-        setState(() {
-          _updateQuestion(videoUrl: video.path);
-        });
+        _updateQuestion(videoUrl: video.path, imageUrl: '');
       }
     } catch (e) {
       if (mounted) {
@@ -124,6 +148,12 @@ class _QuestionEditorState extends State<QuestionEditor> {
         );
       }
     }
+  }
+
+  void _removeMedia() {
+    setState(() {
+      _updateQuestion(imageUrl: '', videoUrl: '');
+    });
   }
 
   bool _shouldShowOptions() {
@@ -402,20 +432,20 @@ class _QuestionEditorState extends State<QuestionEditor> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    if (widget.question.imageUrl != null)
+                    if (widget.question.imageUrl != null && widget.question.imageUrl!.isNotEmpty)
                       Chip(
                         avatar: const Icon(Icons.image, size: 16),
                         label: const Text('Image attached'),
                         deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () => _updateQuestion(imageUrl: null),
+                        onDeleted: _removeMedia,
                         backgroundColor: AppColors.accent1.withOpacity(0.1),
                       ),
-                    if (widget.question.videoUrl != null)
+                    if (widget.question.videoUrl != null && widget.question.videoUrl!.isNotEmpty)
                       Chip(
                         avatar: const Icon(Icons.videocam, size: 16),
                         label: const Text('Video attached'),
                         deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () => _updateQuestion(videoUrl: null),
+                        onDeleted: _removeMedia,
                         backgroundColor: AppColors.accent1.withOpacity(0.1),
                       ),
                   ],
@@ -450,22 +480,30 @@ class _QuestionEditorState extends State<QuestionEditor> {
                     IconButton(
                       icon: Icon(
                         Icons.image_outlined,
-                        color: widget.question.imageUrl != null
+                        color: (widget.question.imageUrl != null && widget.question.imageUrl!.isNotEmpty)
                             ? AppColors.accent1
                             : Colors.grey[600],
                       ),
-                      onPressed: _pickImage,
-                      tooltip: 'Add image',
+                      onPressed: (widget.question.videoUrl != null && widget.question.videoUrl!.isNotEmpty) 
+                          ? null 
+                          : _pickImage,
+                      tooltip: (widget.question.videoUrl != null && widget.question.videoUrl!.isNotEmpty)
+                          ? 'Remove video first'
+                          : 'Add image',
                     ),
                     IconButton(
                       icon: Icon(
                         Icons.videocam_outlined,
-                        color: widget.question.videoUrl != null
+                        color: (widget.question.videoUrl != null && widget.question.videoUrl!.isNotEmpty)
                             ? AppColors.accent1
                             : Colors.grey[600],
                       ),
-                      onPressed: _pickVideo,
-                      tooltip: 'Add video',
+                      onPressed: (widget.question.imageUrl != null && widget.question.imageUrl!.isNotEmpty)
+                          ? null
+                          : _pickVideo,
+                      tooltip: (widget.question.imageUrl != null && widget.question.imageUrl!.isNotEmpty)
+                          ? 'Remove image first'
+                          : 'Add video',
                     ),
                   ],
                 ),

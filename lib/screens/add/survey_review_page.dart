@@ -3,6 +3,7 @@ import 'package:inquira/constants/colors.dart';
 import 'package:inquira/models/question_type.dart';
 import 'package:inquira/models/survey_creation.dart';
 import 'package:inquira/widgets/primary_button.dart';
+import 'package:inquira/data/survey_service.dart';
 
 class SurveyReviewPage extends StatelessWidget {
   final SurveyCreation surveyData;
@@ -143,23 +144,78 @@ class SurveyReviewPage extends StatelessWidget {
   }
 
   void _publishSurvey(BuildContext context) async {
-    // Here you would typically make an API call to publish the survey
-    // For now, we'll just show a success message and navigate back
+    bool isDialogShowing = false;
+    
     try {
-      // TODO: Implement API call to publish survey
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Survey published successfully!'),
-          backgroundColor: Colors.green,
+      // Show loading indicator
+      isDialogShowing = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
         ),
       );
-      // Navigate back to home
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    } catch (e) {
+
+      print('Starting survey publish...');
+      
+      // Get current user ID
+      final userId = await SurveyService.getCurrentUserId();
+      print('User ID: $userId');
+      
+      // Convert SurveyCreation to Survey
+      final survey = SurveyService.surveyCreationToSurvey(surveyData, userId);
+      print('Survey converted: ${survey.id}');
+      
+      // Save to local storage
+      final success = await SurveyService.saveSurvey(survey);
+      print('Save result: $success');
+      
+      if (!context.mounted) return;
+      
+      // Close loading dialog
+      if (isDialogShowing) {
+        Navigator.of(context).pop();
+        isDialogShowing = false;
+      }
+      
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Survey published successfully! 🎉'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // Navigate back to home
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (context.mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      } else {
+        throw Exception('Failed to save survey to local storage');
+      }
+    } catch (e, stackTrace) {
+      print('Error publishing survey: $e');
+      print('Stack trace: $stackTrace');
+      
+      if (!context.mounted) return;
+      
+      // Close loading dialog if still showing
+      if (isDialogShowing) {
+        try {
+          Navigator.of(context).pop();
+        } catch (_) {
+          // Dialog already closed
+        }
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to publish survey: ${e.toString()}'),
+          content: Text('Failed to publish: ${e.toString().replaceAll('Exception: ', '')}'),
           backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
         ),
       );
     }

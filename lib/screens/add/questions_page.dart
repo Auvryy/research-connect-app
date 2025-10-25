@@ -377,7 +377,7 @@ class _QuestionsPageState extends State<QuestionsPage> {
                 ),
 
                 // Section Questions
-                if (isExpanded || sectionQuestions.isNotEmpty) ...[
+                if (isExpanded) ...[
                   const Divider(height: 1),
                   if (sectionQuestions.isEmpty)
                     Padding(
