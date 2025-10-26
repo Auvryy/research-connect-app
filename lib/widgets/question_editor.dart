@@ -104,7 +104,15 @@ class _QuestionEditorState extends State<QuestionEditor> {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
-        _updateQuestion(imageUrl: image.path, videoUrl: '');
+        setState(() {
+          // Clear video and set image
+          widget.onQuestionUpdated(
+            widget.question.copyWith(
+              imageUrl: image.path,
+              videoUrl: '',
+            ),
+          );
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -136,7 +144,15 @@ class _QuestionEditorState extends State<QuestionEditor> {
     try {
       final XFile? video = await _picker.pickVideo(source: ImageSource.gallery);
       if (video != null) {
-        _updateQuestion(videoUrl: video.path, imageUrl: '');
+        setState(() {
+          // Clear image and set video
+          widget.onQuestionUpdated(
+            widget.question.copyWith(
+              imageUrl: '',
+              videoUrl: video.path,
+            ),
+          );
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -151,9 +167,8 @@ class _QuestionEditorState extends State<QuestionEditor> {
   }
 
   void _removeMedia() {
-    setState(() {
-      _updateQuestion(imageUrl: '', videoUrl: '');
-    });
+    // Clear both image and video URLs
+    _updateQuestion(imageUrl: '', videoUrl: '');
   }
 
   bool _shouldShowOptions() {
