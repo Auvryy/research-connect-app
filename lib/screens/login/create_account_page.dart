@@ -5,7 +5,7 @@ import '/widgets/primary_button.dart';
 import 'package:inquira/widgets/secondary_button.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/widgets/toggle_login_register.dart';
-import 'package:inquira/data/api/dio_client.dart';
+import 'package:inquira/data/api/auth_api.dart';
 
 class CreateAccountPage extends StatefulWidget {
   const CreateAccountPage({super.key});
@@ -61,15 +61,24 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
   void _validatePassword() {
     final password = _passwordController.text.trim();
-    final regex = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,36}$');
 
     if (password.isEmpty) {
       _passwordError = "Password is required";
-    } else if (!regex.hasMatch(password)) {
-      _passwordError =
-          "Must be 8–36 chars, include uppercase, lowercase, and a digit";
     } else {
-      _passwordError = null;
+      List<String> requirements = [];
+      
+      if (password.length < 8) requirements.add("at least 8 characters");
+      if (password.length > 36) requirements.add("no more than 36 characters");
+      if (!password.contains(RegExp(r'[A-Z]'))) requirements.add("one uppercase letter");
+      if (!password.contains(RegExp(r'[a-z]'))) requirements.add("one lowercase letter");
+      if (!password.contains(RegExp(r'[0-9]'))) requirements.add("one number");
+      if (!password.contains(RegExp(r'[!@#$%^&*()_\-+=<>?/]'))) requirements.add("one special character (e.g., @, #, _, -)");
+      
+      if (requirements.isNotEmpty) {
+        _passwordError = "Password must include: ${requirements.join(", ")}";
+      } else {
+        _passwordError = null;
+      }
     }
     _validateConfirmPassword();
     setState(() {});
@@ -93,30 +102,44 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
     setState(() => _loading = true);
     try {
-      final response = await DioClient().post(
-        "/user/register",
-        data: {
-          "username": _usernameController.text.trim(),
-          "password": _passwordController.text.trim(),
-        },
+      final response = await AuthAPI.register(
+        _usernameController.text.trim(),
+        _passwordController.text.trim(),
       );
 
-      if (response["ok"] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Account created successfully!")),
-        );
-        Navigator.pushReplacementNamed(context, '/login');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response["message"].toString())),
-        );
+      if (mounted) {  // Check if widget is still mounted
+        if (response["ok"] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Account created successfully!")),
+          );
+          Navigator.pushReplacementNamed(context, '/login');
+        } else {
+          final message = response["message"];
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                message is String ? message : "Registration failed"
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      if (mounted) {  // Check if widget is still mounted
+        String errorMessage;
+        if (e is Map) {
+          errorMessage = (e["message"] as String?) ?? "Registration failed";
+        } else {
+          errorMessage = e.toString();
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
+      }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {  // Check if widget is still mounted
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -150,7 +173,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
               const SizedBox(height: 30),
 
               // Username
-              CustomTextfield(
+              CustomTextField(
                 label: "Username",
                 controller: _usernameController,
               ),
@@ -171,9 +194,9 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
               const SizedBox(height: 20),
 
               // Password
-              CustomTextfield(
+              CustomTextField(
                 label: "Password",
-                obsercure: true,
+                obscureText: true,
                 controller: _passwordController,
               ),
               if (_passwordError != null)
@@ -193,9 +216,9 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
               const SizedBox(height: 20),
 
               // Confirm Password
-              CustomTextfield(
+              CustomTextField(
                 label: "Confirm Password",
-                obsercure: true,
+                obscureText: true,
                 controller: _confirmPasswordController,
               ),
               if (_confirmPasswordError != null)

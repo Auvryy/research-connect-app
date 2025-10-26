@@ -13,7 +13,12 @@ dependencies:
   intl: ^0.18.1
   dio: ^5.4.0
   cookie_jar: ^4.0.8
+  path_provider: ^2.1.1
   dio_cookie_manager: 3.3.0
+  reorderable_grid_view: ^2.0.0
+  image_picker: ^1.0.4
+  uuid: ^4.2.1
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
