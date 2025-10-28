@@ -261,6 +261,7 @@ class SurveyService {
       final survey = Survey(
         id: surveyId,
         title: creation.title,
+        caption: creation.caption,
         description: creation.description,
         timeToComplete: creation.timeToComplete,
         tags: creation.tags.isNotEmpty ? creation.tags : ['General'],
@@ -293,5 +294,7 @@ class SurveyService {
   static Future<void> clearAllSurveys() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_surveysKey);
+    _inMemorySurveys.clear(); // Also clear in-memory storage
+    print('All surveys cleared from both SharedPreferences and in-memory storage');
   }
 }

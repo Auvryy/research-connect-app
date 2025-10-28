@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/user_info.dart';
 import 'package:inquira/data/api/auth_api.dart';
+import 'package:inquira/data/survey_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -145,6 +146,65 @@ class _SettingsPageState extends State<SettingsPage> {
                   trailing: Icon(Icons.chevron_right, color: AppColors.secondary),
                   onTap: () {
                     // TODO: navigate to privacy page
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.delete_sweep, color: Colors.orange),
+                  title: const Text(
+                    "Clear All Surveys (Debug)",
+                    style: TextStyle(color: Colors.orange),
+                  ),
+                  subtitle: const Text("Delete all locally stored surveys"),
+                  onTap: () {
+                    // Show confirmation dialog
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text("Clear All Surveys"),
+                          content: const Text(
+                            "This will permanently delete all surveys from local storage. This action cannot be undone. Continue?",
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text("Cancel"),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                try {
+                                  await SurveyService.clearAllSurveys();
+                                  // Close the dialog
+                                  Navigator.of(context).pop();
+                                  // Show success message
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('All surveys cleared successfully!'),
+                                      backgroundColor: Colors.green,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                } catch (e) {
+                                  // Show error message
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Failed to clear surveys: ${e.toString()}'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  Navigator.of(context).pop();
+                                }
+                              },
+                              child: const Text(
+                                "Clear All",
+                                style: TextStyle(color: Colors.orange),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
                   },
                 ),
                 const Divider(height: 1),
