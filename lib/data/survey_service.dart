@@ -199,14 +199,25 @@ class SurveyService {
     }
   }
 
-  /// Get current user ID (for demo purposes, uses UserInfo)
+  /// Get current user ID from logged-in user
   static Future<String> getCurrentUserId() async {
     try {
       print('SurveyService.getCurrentUserId: Getting user ID...');
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString(_currentUserIdKey) ?? 'user-default-123';
-      print('SurveyService.getCurrentUserId: User ID: $userId');
-      return userId;
+      final userId = prefs.getInt('user_id');
+      final username = prefs.getString('username');
+      
+      if (userId != null) {
+        print('SurveyService.getCurrentUserId: User ID: $userId');
+        return userId.toString();
+      } else if (username != null) {
+        // Fallback to username if ID is not available
+        print('SurveyService.getCurrentUserId: Using username: $username');
+        return username;
+      } else {
+        print('SurveyService.getCurrentUserId: No user logged in, using default');
+        return 'user-default-123';
+      }
     } catch (e, stackTrace) {
       print('ERROR in SurveyService.getCurrentUserId: $e');
       print('Stack trace: $stackTrace');

@@ -70,29 +70,31 @@ class _ProfilePageState extends State<ProfilePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      currentUser.name,
-                      style: TextStyle(
+                      currentUser?.name ?? currentUser?.username ?? 'User',
+                      style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: AppColors.primary,
                       ),
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      currentUser.course,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.secondary,
+                    const SizedBox(height: 4),
+                    if (currentUser?.course != null)
+                      Text(
+                        currentUser!.course!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppColors.secondary,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      currentUser.school,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.secondary,
+                    if (currentUser?.course != null) const SizedBox(height: 2),
+                    if (currentUser?.school != null)
+                      Text(
+                        currentUser!.school!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppColors.secondary,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ],
@@ -201,31 +203,31 @@ class _ProfilePageState extends State<ProfilePage> {
                   ProfileInfoItem(
                     icon: Icons.person,
                     label: "Full Name",
-                    value: currentUser.name,
+                    value: currentUser?.name ?? currentUser?.username ?? 'Not set',
                     iconColor: AppColors.blue,
                   ),
                   ProfileInfoItem(
                     icon: Icons.mail,
                     label: "Email",
-                    value: currentUser.email,
+                    value: currentUser?.email ?? 'Not set',
                     iconColor: AppColors.purple,
                   ),
                   ProfileInfoItem(
                     icon: Icons.phone,
                     label: "Phone Number",
-                    value: currentUser.phone,
+                    value: currentUser?.phone ?? 'Not set',
                     iconColor: AppColors.green,
                   ),
                   ProfileInfoItem(
                     icon: Icons.school,
                     label: "School",
-                    value: currentUser.school,
+                    value: currentUser?.school ?? 'Not set',
                     iconColor: AppColors.orange,
                   ),
                   ProfileInfoItem(
                     icon: Icons.book,
                     label: "Course",
-                    value: currentUser.course,
+                    value: currentUser?.course ?? 'Not set',
                     iconColor: AppColors.pink,
                   ),
                 ],

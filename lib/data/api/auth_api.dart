@@ -1,4 +1,5 @@
 import 'dio_client.dart';
+import '../user_info.dart';
 
 class AuthAPI {
   /// Validates registration input against backend requirements
@@ -100,7 +101,9 @@ class AuthAPI {
 
   static Future<Map<String, dynamic>> login(String username, String password) async {
     try {
+      print('AuthAPI.login: Starting login for username: $username');
       await DioClient.init();  // Ensure client is initialized
+      
       final response = await DioClient.post(
         '/login',
         data: {
@@ -108,19 +111,120 @@ class AuthAPI {
           "password": password,
         },
       );
-      return response as Map<String, dynamic>;
+      
+      print('AuthAPI.login: Response received: $response');
+      
+      // Handle different response types
+      if (response is Map<String, dynamic>) {
+        final status = response['status'] as int?;
+        final isSuccess = response['ok'] as bool?;
+        final message = response['message'];
+        
+        // If login is successful, fetch user data and save it
+        if (isSuccess == true && status == 200) {
+          print('AuthAPI.login: Login successful, fetching user data...');
+          
+          // Call the /login_success endpoint to get user details
+          try {
+            final userDataResponse = await DioClient.get('/login_success');
+            print('AuthAPI.login: User data response: $userDataResponse');
+            
+            if (userDataResponse is Map<String, dynamic> && 
+                userDataResponse['ok'] == true) {
+              final userData = userDataResponse['message'];
+              
+              if (userData is Map<String, dynamic>) {
+                // Create UserInfo from the response
+                final userInfo = UserInfo(
+                  id: userData['id'] as int?,
+                  username: userData['username'] as String,
+                  profilePicUrl: userData['profile_pic'] as String?,
+                );
+                
+                // Save user info to SharedPreferences
+                await UserInfo.saveUserInfo(userInfo);
+                print('AuthAPI.login: User info saved successfully');
+              }
+            }
+          } catch (userDataError) {
+            print('AuthAPI.login: Error fetching user data: $userDataError');
+            // Continue even if fetching user data fails
+          }
+        }
+        
+        return {
+          'status': status ?? 500,
+          'ok': isSuccess ?? false,
+          'message': message?.toString() ?? 'Unknown error',
+        };
+      } else if (response is String) {
+        return {
+          'status': 500,
+          'ok': false,
+          'message': response,
+        };
+      } else {
+        return {
+          'status': 500,
+          'ok': false,
+          'message': 'Invalid response format',
+        };
+      }
     } catch (e) {
-      rethrow;  // Pass through the detailed error message
+      print('AuthAPI.login: Exception occurred: $e');
+      return {
+        'status': 500,
+        'ok': false,
+        'message': e.toString(),
+      };
     }
   }
 
   static Future<Map<String, dynamic>> logout() async {
     try {
+      print('AuthAPI.logout: Starting logout...');
       await DioClient.init();  // Ensure client is initialized
-      final response = await DioClient.post('/logout');
-      return response as Map<String, dynamic>;
+      
+      final response = await DioClient.post('/refresh/logout');
+      print('AuthAPI.logout: Response received: $response');
+      
+      // Clear user data regardless of response
+      await UserInfo.clearUserInfo();
+      print('AuthAPI.logout: User info cleared from SharedPreferences');
+      
+      // Clear cookies
+      await DioClient.clearCookies();
+      print('AuthAPI.logout: Cookies cleared');
+      
+      // Handle different response types
+      if (response is Map<String, dynamic>) {
+        return response;
+      } else if (response is String) {
+        return {
+          'status': 200,
+          'ok': true,
+          'message': response,
+        };
+      } else {
+        return {
+          'status': 200,
+          'ok': true,
+          'message': 'Logged out successfully',
+        };
+      }
     } catch (e) {
-      rethrow;  // Pass through the detailed error message
+      print('AuthAPI.logout: Error occurred: $e');
+      
+      // Clear user data even if the API call fails
+      await UserInfo.clearUserInfo();
+      await DioClient.clearCookies();
+      
+      // Return success anyway since local data is cleared
+      return {
+        'status': 200,
+        'ok': true,
+        'message': 'Logged out locally',
+      };
     }
   }
 
@@ -128,9 +232,29 @@ class AuthAPI {
     try {
       await DioClient.init();  // Ensure client is initialized
       final response = await DioClient.post('/refresh');
-      return response as Map<String, dynamic>;
+      
+      // Handle different response types
+      if (response is Map<String, dynamic>) {
+        return response;
+      } else if (response is String) {
+        return {
+          'status': 500,
+          'ok': false,
+          'message': response,
+        };
+      } else {
+        return {
+          'status': 500,
+          'ok': false,
+          'message': 'Invalid response format',
+        };
+      }
     } catch (e) {
-      rethrow;  // Pass through the detailed error message
+      return {
+        'status': 500,
+        'ok': false,
+        'message': e.toString(),
+      };
     }
   }
 }

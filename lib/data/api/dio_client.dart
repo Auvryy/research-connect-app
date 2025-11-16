@@ -58,6 +58,37 @@ class DioClient {
         dio.interceptors.add(CookieManager(_cookieJar!));
       }
 
+      // Add interceptor for automatic token refresh
+      dio.interceptors.add(InterceptorsWrapper(
+        onError: (DioException error, ErrorInterceptorHandler handler) async {
+          // If we get a 401, try to refresh token
+          if (error.response?.statusCode == 401) {
+            print('DioClient: Received 401, attempting token refresh...');
+            try {
+              final refreshResponse = await dio.post('/refresh');
+              if (refreshResponse.statusCode == 200) {
+                print('DioClient: Token refreshed, retrying original request...');
+                // Retry the original request
+                final options = error.requestOptions;
+                final response = await dio.request(
+                  options.path,
+                  data: options.data,
+                  queryParameters: options.queryParameters,
+                  options: Options(
+                    method: options.method,
+                    headers: options.headers,
+                  ),
+                );
+                return handler.resolve(response);
+              }
+            } catch (e) {
+              print('DioClient: Token refresh failed: $e');
+            }
+          }
+          return handler.next(error);
+        },
+      ));
+
       // Add logging interceptor for debugging
       dio.interceptors.add(LogInterceptor(
         requestHeader: true,
@@ -151,6 +182,18 @@ class DioClient {
       } else {
         throw e.message ?? 'An error occurred';
       }
+    }
+  }
+
+  /// Clear all cookies (used during logout)
+  static Future<void> clearCookies() async {
+    try {
+      if (_cookieJar != null) {
+        await _cookieJar!.deleteAll();
+        print('DioClient: Cookies cleared');
+      }
+    } catch (e) {
+      print('DioClient: Error clearing cookies: $e');
     }
   }
 }

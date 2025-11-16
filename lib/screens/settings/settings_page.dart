@@ -82,7 +82,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(height: 16),
                 // User Name
                 Text(
-                  "Dr. ${currentUser.name.split(' ')[0]} ${currentUser.name.split(' ')[currentUser.name.split(' ').length - 1]}",
+                  currentUser?.name ?? currentUser?.username ?? 'User',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -91,23 +91,25 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 4),
                 // Course
-                Text(
-                  currentUser.course,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.secondaryText,
+                if (currentUser?.course != null)
+                  Text(
+                    currentUser!.course!,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.secondaryText,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
+                if (currentUser?.course != null) const SizedBox(height: 2),
                 // School
-                Text(
-                  currentUser.school,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondary,
+                if (currentUser?.school != null)
+                  Text(
+                    currentUser!.school!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.secondary,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
               ],
             ),
           ),
@@ -230,23 +232,44 @@ class _SettingsPageState extends State<SettingsPage> {
                             TextButton(
                               onPressed: () async {
                                 try {
-                                  await AuthAPI.logout();
+                                  final result = await AuthAPI.logout();
+                                  
+                                  // Clear current user
+                                  currentUser = null;
+                                  
                                   // Close the dialog
-                                  Navigator.of(context).pop();
-                                  // Navigate to login page and remove all previous routes
-                                  Navigator.of(context).pushNamedAndRemoveUntil(
-                                    '/login',
-                                    (Route<dynamic> route) => false,
-                                  );
+                                  if (mounted) {
+                                    Navigator.of(context).pop();
+                                  }
+                                  
+                                  if (result['ok'] == true) {
+                                    // Navigate to login page and remove all previous routes
+                                    if (mounted) {
+                                      Navigator.of(context).pushNamedAndRemoveUntil(
+                                        '/login',
+                                        (Route<dynamic> route) => false,
+                                      );
+                                    }
+                                  } else {
+                                    // Even if API logout fails, still redirect to login
+                                    // since local data is cleared
+                                    if (mounted) {
+                                      Navigator.of(context).pushNamedAndRemoveUntil(
+                                        '/login',
+                                        (Route<dynamic> route) => false,
+                                      );
+                                    }
+                                  }
                                 } catch (e) {
-                                  // Show error message if logout fails
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Failed to logout: ${e.toString()}'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  Navigator.of(context).pop();
+                                  // Clear user and redirect even on error
+                                  currentUser = null;
+                                  if (mounted) {
+                                    Navigator.of(context).pop();
+                                    Navigator.of(context).pushNamedAndRemoveUntil(
+                                      '/login',
+                                      (Route<dynamic> route) => false,
+                                    );
+                                  }
                                 }
                               },
                               child: const Text(

@@ -6,7 +6,6 @@ import 'package:inquira/screens/add/create_survey_page.dart';
 // Import your new pages
 import 'package:inquira/screens/home/home_feed.dart';
 import 'package:inquira/screens/profile/profile_page.dart';
-import 'package:inquira/screens/add/add_survey_page.dart';
 import 'package:inquira/screens/settings/settings_page.dart';
 
 class HomePage extends StatefulWidget {
