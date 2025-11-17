@@ -48,6 +48,16 @@ class SurveyCreation {
   /// POST /api/survey/post/send/questionnaire/mobile
   /// Returns JSON in camelCase format
   Map<String, dynamic> toBackendJson() {
+    // Convert sections list to map with section ID as key
+    final sectionsMap = <String, Map<String, dynamic>>{};
+    for (var section in sections) {
+      sectionsMap[section.id] = {
+        'title': section.title,
+        'description': section.description,
+        'order': section.order,
+      };
+    }
+
     return {
       'caption': caption.isEmpty ? title : caption,
       'title': title,
@@ -66,12 +76,7 @@ class SurveyCreation {
         'imageUrl': q.imageUrl,
         'videoUrl': q.videoUrl,
       }).toList(),
-      'sections': sections.map((s) => {
-        'id': s.id,
-        'title': s.title,
-        'description': s.description,
-        'order': s.order,
-      }).toList(),
+      'sections': sectionsMap,
     };
   }
 

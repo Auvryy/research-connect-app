@@ -113,26 +113,23 @@
       "videoUrl": null
     }
   ],
-  "sections": [
-    {
-      "id": "section-uuid-1",
+  "sections": {
+    "section-uuid-1": {
       "title": "Programming Background",
       "description": "Tell us about your programming experience",
       "order": 0
     },
-    {
-      "id": "section-uuid-2",
+    "section-uuid-2": {
       "title": "Learning Journey",
       "description": "Share your learning experiences",
       "order": 1
     },
-    {
-      "id": "section-uuid-3",
+    "section-uuid-3": {
       "title": "Tools & Preferences",
       "description": "Your development environment preferences",
       "order": 2
     }
-  ]
+  }
 }
 ```
 
@@ -151,7 +148,7 @@
 | `tags` | array | Yes | Survey categories | At least 1 tag required |
 | `targetAudience` | array | Yes | Target demographics | At least 1 audience required |
 | `data` | array | Yes | Array of question objects | At least 1 question required |
-| `sections` | array | Yes | Array of section objects | At least 1 section required |
+| `sections` | object | Yes | Map of section objects with section ID as key | At least 1 section required |
 
 ### Question Object (`data` array)
 
@@ -184,14 +181,17 @@ Text input types (no options):
 Boolean type (no options):
 - `"yesNo"` - Yes/No question
 
-### Section Object (`sections` array)
+### Section Object (`sections` map)
+
+**Structure:** `sections` is an object/map where the key is the section ID (UUID) and the value contains section properties.
 
 | Field | Type | Required | Description | Validation |
 |-------|------|----------|-------------|------------|
-| `id` | string | Yes | Unique identifier | UUID v4 format |
 | `title` | string | Yes | Section title | 5-256 characters |
 | `description` | string | No | Section description | 5-512 characters if provided |
 | `order` | number | Yes | Display order | 0-based index |
+
+**Note:** The section ID is the key in the `sections` object, not a property inside it.
 
 ---
 
@@ -299,14 +299,13 @@ Boolean type (no options):
       "videoUrl": null
     }
   ],
-  "sections": [
-    {
-      "id": "s1",
+  "sections": {
+    "s1": {
       "title": "Device Usage",
       "description": "Information about your devices",
       "order": 0
     }
-  ]
+  }
 }
 ```
 
