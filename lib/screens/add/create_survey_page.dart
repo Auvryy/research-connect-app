@@ -39,6 +39,17 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
   void initState() {
     super.initState();
     _loadDraft();
+    
+    // Add listeners to update character counters
+    _titleController.addListener(() {
+      setState(() {});
+    });
+    _captionController.addListener(() {
+      setState(() {});
+    });
+    _descriptionController.addListener(() {
+      setState(() {});
+    });
   }
 
   Future<void> _loadDraft() async {

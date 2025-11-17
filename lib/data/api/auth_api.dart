@@ -134,11 +134,17 @@ class AuthAPI {
               final userData = userDataResponse['message'];
               
               if (userData is Map<String, dynamic>) {
+                // Get profile pic and ensure it's null if empty
+                String? profilePicUrl = userData['profile_pic'] as String?;
+                if (profilePicUrl != null && profilePicUrl.trim().isEmpty) {
+                  profilePicUrl = null;
+                }
+                
                 // Create UserInfo from the response
                 final userInfo = UserInfo(
                   id: userData['id'] as int?,
                   username: userData['username'] as String,
-                  profilePicUrl: userData['profile_pic'] as String?,
+                  profilePicUrl: profilePicUrl,
                 );
                 
                 // Save user info to SharedPreferences
@@ -257,4 +263,74 @@ class AuthAPI {
       };
     }
   }
+
+
+
+  /// Upload user avatar/profile picture using backend's /profile_upload endpoint
+  static Future<Map<String, dynamic>> uploadAvatar(dynamic imageFile) async {
+    try {
+      print('AuthAPI.uploadAvatar: Starting avatar upload...');
+      await DioClient.init();
+
+      // Backend expects PATCH request to /profile_upload with 'profile_pic' field
+      final response = await DioClient.uploadFile(
+        '/profile_upload',
+        imageFile,
+        fieldName: 'profile_pic',
+        method: 'PATCH',
+      );
+      
+      print('AuthAPI.uploadAvatar: Response received: $response');
+
+      if (response is Map<String, dynamic>) {
+        // If upload is successful, reload user data to get updated profile pic
+        if (response['ok'] == true) {
+          // Fetch updated user data from /login_success
+          try {
+            final userDataResponse = await DioClient.get('/login_success');
+            if (userDataResponse is Map<String, dynamic> && userDataResponse['ok'] == true) {
+              final userData = userDataResponse['message'];
+              if (userData is Map<String, dynamic>) {
+                // Get profile pic and ensure it's null if empty
+                String? profilePicUrl = userData['profile_pic'] as String?;
+                if (profilePicUrl != null && profilePicUrl.trim().isEmpty) {
+                  profilePicUrl = null;
+                }
+                
+                final userInfo = UserInfo(
+                  id: userData['id'] as int?,
+                  username: userData['username'] as String,
+                  profilePicUrl: profilePicUrl,
+                );
+                await UserInfo.saveUserInfo(userInfo);
+                currentUser = userInfo;
+                print('AuthAPI.uploadAvatar: Profile pic URL updated locally');
+              }
+            }
+          } catch (e) {
+            print('AuthAPI.uploadAvatar: Error reloading user data: $e');
+          }
+        }
+
+        return response;
+      } else {
+        return {
+          'status': 500,
+          'ok': false,
+          'message': 'Invalid response format',
+        };
+      }
+    } catch (e) {
+      print('AuthAPI.uploadAvatar: Error occurred: $e');
+      return {
+        'status': 500,
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+
+
+
 }

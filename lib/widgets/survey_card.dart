@@ -96,7 +96,9 @@ class _SurveyCardState extends State<SurveyCard> {
                     child: Center(
                       child: Text(
                         survey.creator.isNotEmpty 
-                            ? survey.creator.substring(0, 2).toUpperCase()
+                            ? survey.creator.length >= 2 
+                                ? survey.creator.substring(0, 2).toUpperCase()
+                                : survey.creator[0].toUpperCase()
                             : 'MC',
                         style: const TextStyle(
                           color: Colors.white,

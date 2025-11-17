@@ -14,6 +14,28 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   bool _isDarkMode = false;
 
+  Color _getRoleColor(String? role) {
+    if (role == null) return AppColors.secondary;
+    
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return AppColors.error;
+      case 'moderator':
+        return AppColors.orange;
+      case 'premium':
+        return AppColors.purple;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  String _getRoleDisplay(String? role) {
+    if (role == null) return 'User';
+    
+    // Capitalize first letter
+    return role[0].toUpperCase() + role.substring(1).toLowerCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -49,31 +71,39 @@ class _SettingsPageState extends State<SettingsPage> {
                 // Profile Image
                 Stack(
                   children: [
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.primary,
-                        image: const DecorationImage(
-                          image: AssetImage('assets/images/guts-image.jpeg'),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                    CircleAvatar(
+                      radius: 45,
+                      backgroundColor: AppColors.primary.withOpacity(0.1),
+                      backgroundImage: currentUser?.profilePicUrl != null && currentUser!.profilePicUrl!.isNotEmpty
+                          ? NetworkImage(currentUser!.profilePicUrl!)
+                          : null,
+                      child: currentUser?.profilePicUrl == null || currentUser!.profilePicUrl!.isEmpty
+                          ? Icon(
+                              Icons.person,
+                              size: 45,
+                              color: AppColors.primary.withOpacity(0.5),
+                            )
+                          : null,
                     ),
                     Positioned(
                       bottom: 0,
                       right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          size: 16,
-                          color: Colors.white,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(context, '/edit-profile');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            size: 14,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -82,7 +112,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(height: 16),
                 // User Name
                 Text(
-                  currentUser?.name ?? currentUser?.username ?? 'User',
+                  currentUser?.username ?? 'User',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -90,25 +120,22 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                // Course
-                if (currentUser?.course != null)
-                  Text(
-                    currentUser!.course!,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.secondaryText,
+                // Role Badge
+                if (currentUser?.role != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _getRoleColor(currentUser?.role),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                  ),
-                if (currentUser?.course != null) const SizedBox(height: 2),
-                // School
-                if (currentUser?.school != null)
-                  Text(
-                    currentUser!.school!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.secondary,
+                    child: Text(
+                      _getRoleDisplay(currentUser?.role),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    textAlign: TextAlign.center,
                   ),
               ],
             ),

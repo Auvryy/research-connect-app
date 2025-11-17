@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/screens/add/create_survey_page.dart';
+import 'package:inquira/data/user_info.dart';
 
 // Import your new pages
 import 'package:inquira/screens/home/home_feed.dart';
@@ -9,14 +10,22 @@ import 'package:inquira/screens/profile/profile_page.dart';
 import 'package:inquira/screens/settings/settings_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final int initialTab;
+  
+  const HomePage({super.key, this.initialTab = 0});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  int _currentIndex = 0;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialTab;
+  }
 
   // ✅ Only include pages that live under the bottom nav
   final List<Widget> _pages = [
@@ -67,9 +76,19 @@ class _HomePageState extends State<HomePage> {
                 _currentIndex = 1; // jump to Profile tab
               });
             },
-            child: const CircleAvatar(
-              radius: 16,
-              backgroundImage: AssetImage('assets/images/guts-image.jpeg'),
+            child: CircleAvatar(
+              radius: 20,
+              backgroundColor: AppColors.primary.withOpacity(0.1),
+              backgroundImage: currentUser?.profilePicUrl != null && currentUser!.profilePicUrl!.isNotEmpty
+                  ? NetworkImage(currentUser!.profilePicUrl!)
+                  : null,
+              child: currentUser?.profilePicUrl == null || currentUser!.profilePicUrl!.isEmpty
+                  ? Icon(
+                      Icons.person,
+                      size: 20,
+                      color: AppColors.primary.withOpacity(0.5),
+                    )
+                  : null,
             ),
           ),
         ),

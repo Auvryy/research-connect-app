@@ -4,34 +4,38 @@ import 'package:shared_preferences/shared_preferences.dart';
 class UserInfo {
   final int? id;
   final String username;
-  final String? name;
+  final String? profilePicUrl;
+  final String? role;
   final String? email;
-  final String? phone;
+  final String? phoneNumber;
+  final String? schoolId;
   final String? school;
   final String? course;
-  final String? profilePicUrl;
 
   UserInfo({
     this.id,
     required this.username,
-    this.name,
+    this.profilePicUrl,
+    this.role,
     this.email,
-    this.phone,
+    this.phoneNumber,
+    this.schoolId,
     this.school,
     this.course,
-    this.profilePicUrl,
   });
 
   factory UserInfo.fromJson(Map<String, dynamic> json) {
     return UserInfo(
       id: json['id'] as int?,
       username: json['username'] as String,
-      name: json['name'] as String?,
+      // Backend returns 'profile_pic' from /login_success and 'profile_pic_url' from get_user()
+      profilePicUrl: json['profile_pic'] as String? ?? json['profile_pic_url'] as String?,
+      role: json['role'] as String?,
       email: json['email'] as String?,
-      phone: json['phone'] as String?,
+      phoneNumber: json['phone_number'] as String?,
+      schoolId: json['school_id'] as String?,
       school: json['school'] as String?,
       course: json['course'] as String?,
-      profilePicUrl: json['profile_pic'] as String?,
     );
   }
 
@@ -39,13 +43,39 @@ class UserInfo {
     return {
       'id': id,
       'username': username,
-      'name': name,
+      'profile_pic_url': profilePicUrl,
+      'role': role,
       'email': email,
-      'phone': phone,
+      'phone_number': phoneNumber,
+      'school_id': schoolId,
       'school': school,
       'course': course,
-      'profile_pic': profilePicUrl,
     };
+  }
+
+  /// Create a copy with updated fields
+  UserInfo copyWith({
+    int? id,
+    String? username,
+    String? profilePicUrl,
+    String? role,
+    String? email,
+    String? phoneNumber,
+    String? schoolId,
+    String? school,
+    String? course,
+  }) {
+    return UserInfo(
+      id: id ?? this.id,
+      username: username ?? this.username,
+      profilePicUrl: profilePicUrl ?? this.profilePicUrl,
+      role: role ?? this.role,
+      email: email ?? this.email,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      schoolId: schoolId ?? this.schoolId,
+      school: school ?? this.school,
+      course: course ?? this.course,
+    );
   }
 
   /// Save user info to SharedPreferences
@@ -56,12 +86,13 @@ class UserInfo {
       // Save each field individually for easier access
       await prefs.setInt('user_id', user.id ?? 0);
       await prefs.setString('username', user.username);
-      if (user.name != null) await prefs.setString('user_name', user.name!);
+      if (user.profilePicUrl != null) await prefs.setString('user_profile_pic', user.profilePicUrl!);
+      if (user.role != null) await prefs.setString('user_role', user.role!);
       if (user.email != null) await prefs.setString('user_email', user.email!);
-      if (user.phone != null) await prefs.setString('user_phone', user.phone!);
+      if (user.phoneNumber != null) await prefs.setString('user_phone', user.phoneNumber!);
+      if (user.schoolId != null) await prefs.setString('user_school_id', user.schoolId!);
       if (user.school != null) await prefs.setString('user_school', user.school!);
       if (user.course != null) await prefs.setString('user_course', user.course!);
-      if (user.profilePicUrl != null) await prefs.setString('user_profile_pic', user.profilePicUrl!);
       
       print('UserInfo saved successfully: ${user.username}');
       return true;
@@ -86,12 +117,13 @@ class UserInfo {
       return UserInfo(
         id: userId,
         username: username,
-        name: prefs.getString('user_name'),
+        profilePicUrl: prefs.getString('user_profile_pic'),
+        role: prefs.getString('user_role'),
         email: prefs.getString('user_email'),
-        phone: prefs.getString('user_phone'),
+        phoneNumber: prefs.getString('user_phone'),
+        schoolId: prefs.getString('user_school_id'),
         school: prefs.getString('user_school'),
         course: prefs.getString('user_course'),
-        profilePicUrl: prefs.getString('user_profile_pic'),
       );
     } catch (e) {
       print('Error loading UserInfo: $e');
@@ -105,12 +137,13 @@ class UserInfo {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('user_id');
       await prefs.remove('username');
-      await prefs.remove('user_name');
+      await prefs.remove('user_profile_pic');
+      await prefs.remove('user_role');
       await prefs.remove('user_email');
       await prefs.remove('user_phone');
+      await prefs.remove('user_school_id');
       await prefs.remove('user_school');
       await prefs.remove('user_course');
-      await prefs.remove('user_profile_pic');
       print('UserInfo cleared from SharedPreferences');
     } catch (e) {
       print('Error clearing UserInfo: $e');
