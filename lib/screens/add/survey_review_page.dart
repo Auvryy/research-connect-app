@@ -4,6 +4,8 @@ import 'package:inquira/models/question_type.dart';
 import 'package:inquira/models/survey_creation.dart';
 import 'package:inquira/widgets/primary_button.dart';
 import 'package:inquira/data/survey_service.dart';
+import 'package:inquira/data/api/survey_api.dart';
+import 'package:inquira/data/draft_service.dart';
 
 class SurveyReviewPage extends StatelessWidget {
   final SurveyCreation surveyData;
@@ -64,6 +66,8 @@ class SurveyReviewPage extends StatelessWidget {
         return 'Rating (Stars)';
       case QuestionType.dropdown:
         return 'Dropdown';
+      case QuestionType.yesNo:
+        return 'Yes/No';
     }
   }
 
@@ -157,19 +161,14 @@ class SurveyReviewPage extends StatelessWidget {
         ),
       );
 
-      print('Starting survey publish...');
+      print('Starting survey publish to backend...');
       
-      // Get current user ID
-      final userId = await SurveyService.getCurrentUserId();
-      print('User ID: $userId');
+      // Convert to backend JSON format
+      final backendData = surveyData.toBackendJson();
+      print('Backend JSON: $backendData');
       
-      // Convert SurveyCreation to Survey
-      final survey = SurveyService.surveyCreationToSurvey(surveyData, userId);
-      print('Survey converted: ${survey.id}');
-      
-      // Save to local storage
-      final success = await SurveyService.saveSurvey(survey);
-      print('Save result: $success');
+      // Send to backend
+      final response = await SurveyAPI.createSurvey(backendData);
       
       if (!context.mounted) return;
       
@@ -179,7 +178,19 @@ class SurveyReviewPage extends StatelessWidget {
         isDialogShowing = false;
       }
       
-      if (success) {
+      if (response['ok'] == true) {
+        // Also save to local storage as backup
+        try {
+          final userId = await SurveyService.getCurrentUserId();
+          final survey = SurveyService.surveyCreationToSurvey(surveyData, userId);
+          await SurveyService.saveSurvey(survey);
+        } catch (e) {
+          print('Local save failed: $e');
+        }
+        
+        // Clear draft after successful publish
+        await DraftService.clearDraft();
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Survey published successfully! 🎉'),
@@ -194,7 +205,7 @@ class SurveyReviewPage extends StatelessWidget {
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
       } else {
-        throw Exception('Failed to save survey to local storage');
+        throw Exception(response['message'] ?? 'Failed to publish survey');
       }
     } catch (e, stackTrace) {
       print('Error publishing survey: $e');

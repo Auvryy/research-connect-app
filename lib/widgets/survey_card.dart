@@ -286,7 +286,15 @@ class _SurveyCardState extends State<SurveyCard> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    // TODO: Navigate to TakeSurveyPage
+                    // Navigate to TakeSurveyPage
+                    Navigator.pushNamed(
+                      context,
+                      '/take-survey',
+                      arguments: {
+                        'surveyId': survey.id,
+                        'postId': int.tryParse(survey.id) ?? 0,
+                      },
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryText,

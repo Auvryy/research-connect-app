@@ -64,6 +64,8 @@ class _QuestionTypeCard extends StatelessWidget {
         return 'Rating (Stars)';
       case QuestionType.dropdown:
         return 'Dropdown';
+      case QuestionType.yesNo:
+        return 'Yes/No';
     }
   }
 
@@ -81,6 +83,8 @@ class _QuestionTypeCard extends StatelessWidget {
         return Icons.star;
       case QuestionType.dropdown:
         return Icons.arrow_drop_down_circle;
+      case QuestionType.yesNo:
+        return Icons.thumbs_up_down;
     }
   }
 

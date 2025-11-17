@@ -6,6 +6,7 @@ import 'package:inquira/widgets/primary_button.dart';
 import 'package:inquira/widgets/question_editor.dart';
 import 'package:inquira/widgets/question_type_selector.dart';
 import 'package:uuid/uuid.dart';
+import 'package:inquira/data/draft_service.dart';
 
 class QuestionsPage extends StatefulWidget {
   final SurveyCreation surveyData;
@@ -75,7 +76,7 @@ class _QuestionsPageState extends State<QuestionsPage> {
     );
   }
 
-  void _updateQuestion(SurveyQuestion updatedQuestion) {
+  Future<void> _updateQuestion(SurveyQuestion updatedQuestion) async {
     setState(() {
       final index = _surveyData.questions
           .indexWhere((q) => q.id == updatedQuestion.id);
@@ -83,9 +84,12 @@ class _QuestionsPageState extends State<QuestionsPage> {
         _surveyData.questions[index] = updatedQuestion;
       }
     });
+    
+    // Auto-save draft
+    await DraftService.saveDraft(_surveyData);
   }
 
-  void _deleteQuestion(String questionId) {
+  Future<void> _deleteQuestion(String questionId) async {
     setState(() {
       _surveyData.questions.removeWhere((q) => q.id == questionId);
       // Update order
@@ -93,6 +97,9 @@ class _QuestionsPageState extends State<QuestionsPage> {
         _surveyData.questions[i] = _surveyData.questions[i].copyWith(order: i);
       }
     });
+    
+    // Auto-save draft
+    await DraftService.saveDraft(_surveyData);
   }
 
   void _addSection() {
@@ -219,6 +226,135 @@ class _QuestionsPageState extends State<QuestionsPage> {
       return;
     }
 
+    // Validate all questions and sections meet backend requirements
+    for (var section in _surveyData.sections) {
+      // Validate section title (5-256 characters)
+      if (section.title.length < 5) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Section "${section.title}" must have a title of at least 5 characters'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+      if (section.title.length > 256) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Section "${section.title}" title must not exceed 256 characters'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      // Validate section description if provided (5-512 characters)
+      if (section.description.isNotEmpty) {
+        if (section.description.length < 5) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Section "${section.title}" description must be at least 5 characters'),
+              backgroundColor: AppColors.error,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          return;
+        }
+        if (section.description.length > 512) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Section "${section.title}" description must not exceed 512 characters'),
+              backgroundColor: AppColors.error,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          return;
+        }
+      }
+    }
+
+    for (var question in _surveyData.questions) {
+      // Validate question text (4-150 words, max 2000 characters)
+      final words = question.text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+      if (words.length < 4) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Question "${question.text.isEmpty ? 'Untitled' : question.text}" must be at least 4 words'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+      if (words.length > 150) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Question "${question.text.isEmpty ? 'Untitled' : question.text}" must not exceed 150 words'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+      if (question.text.length > 2000) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Question "${question.text.isEmpty ? 'Untitled' : question.text}" must not exceed 2000 characters'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      // Validate choice-based questions have at least 2 options (exclude ratingScale)
+      final needsOptions = question.type == QuestionType.multipleChoice ||
+          question.type == QuestionType.checkbox ||
+          question.type == QuestionType.dropdown;
+      
+      if (needsOptions && question.options.length < 2) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Question "${question.text.isEmpty ? 'Untitled' : question.text}" must have at least 2 options'
+            ),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      // Validate each option (1-500 characters)
+      if (needsOptions) {
+        for (var i = 0; i < question.options.length; i++) {
+          final option = question.options[i];
+          if (option.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Question "${question.text.isEmpty ? 'Untitled' : question.text}" has an empty option'),
+                backgroundColor: AppColors.error,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+            return;
+          }
+          if (option.length > 500) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Question "${question.text.isEmpty ? 'Untitled' : question.text}" option ${i + 1} exceeds 500 characters'),
+                backgroundColor: AppColors.error,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+            return;
+          }
+        }
+      }
+    }
+
     Navigator.pushNamed(
       context,
       '/create-survey/review',
@@ -313,41 +449,86 @@ class _QuestionsPageState extends State<QuestionsPage> {
                           ),
                       ],
                     ),
-                    title: TextField(
-                      controller: TextEditingController(text: section.title)
-                        ..selection = TextSelection.collapsed(
-                          offset: section.title.length,
+                    title: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: TextEditingController(text: section.title)
+                            ..selection = TextSelection.collapsed(
+                              offset: section.title.length,
+                            ),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: 'Section Title',
+                            border: InputBorder.none,
+                            isDense: true,
+                          ),
+                          onChanged: (value) {
+                            if (value.length > 256) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Section title must not exceed 256 characters'),
+                                  backgroundColor: AppColors.error,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                              return;
+                            }
+                            _updateSection(index, title: value);
+                          },
                         ),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: 'Section Title',
-                        border: InputBorder.none,
-                        isDense: true,
-                      ),
-                      onChanged: (value) {
-                        _updateSection(index, title: value);
-                      },
+                        Text(
+                          '${section.title.length}/256 chars',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
                     ),
-                    subtitle: TextField(
-                      controller: TextEditingController(text: section.description)
-                        ..selection = TextSelection.collapsed(
-                          offset: section.description.length,
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: TextEditingController(text: section.description)
+                            ..selection = TextSelection.collapsed(
+                              offset: section.description.length,
+                            ),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: 'Section description (optional)',
+                            border: InputBorder.none,
+                            isDense: true,
+                          ),
+                          onChanged: (value) {
+                            if (value.length > 512) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Section description must not exceed 512 characters'),
+                                  backgroundColor: AppColors.error,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                              return;
+                            }
+                            _updateSection(index, description: value);
+                          },
                         ),
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: 'Section description (optional)',
-                        border: InputBorder.none,
-                        isDense: true,
-                      ),
-                      onChanged: (value) {
-                        _updateSection(index, description: value);
-                      },
+                        if (section.description.isNotEmpty)
+                          Text(
+                            '${section.description.length}/512 chars',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                      ],
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,

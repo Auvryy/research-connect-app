@@ -44,6 +44,37 @@ class SurveyCreation {
     };
   }
 
+  /// Convert to backend format for mobile endpoint
+  /// POST /api/survey/post/send/questionnaire/mobile
+  /// Returns JSON in camelCase format
+  Map<String, dynamic> toBackendJson() {
+    return {
+      'caption': caption.isEmpty ? title : caption,
+      'title': title,
+      'description': description.isEmpty ? caption : description,
+      'timeToComplete': timeToComplete.toString(),
+      'tags': tags,
+      'targetAudience': targetAudience,
+      'data': questions.map((q) => {
+        'questionId': q.id,
+        'title': q.text,
+        'type': q.type.toBackendString(),
+        'required': q.required,
+        'order': q.order,
+        'sectionId': q.sectionId.isEmpty ? 'default' : q.sectionId,
+        'options': q.options,
+        'imageUrl': q.imageUrl,
+        'videoUrl': q.videoUrl,
+      }).toList(),
+      'sections': sections.map((s) => {
+        'id': s.id,
+        'title': s.title,
+        'description': s.description,
+        'order': s.order,
+      }).toList(),
+    };
+  }
+
   factory SurveyCreation.fromJson(Map<String, dynamic> json) {
     return SurveyCreation(
       id: json['id'] as String?,

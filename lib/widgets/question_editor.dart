@@ -40,10 +40,47 @@ class _QuestionEditorState extends State<QuestionEditor> {
     if (widget.question.type == QuestionType.ratingScale) {
       _maxRating = 5; // Default to 5 stars
     }
+
+    // Add listener to validate on text change
+    _questionController.addListener(_validateQuestionText);
+  }
+
+  void _validateQuestionText() {
+    final text = _questionController.text.trim();
+    if (text.isEmpty) return;
+
+    final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    
+    // Check word count (4-150 words)
+    if (words.length < 4) {
+      // Don't show error while typing
+      return;
+    }
+    if (words.length > 150) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Question must not exceed 150 words'),
+          backgroundColor: AppColors.error,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+    
+    // Check character count (max 2000)
+    if (text.length > 2000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Question must not exceed 2000 characters'),
+          backgroundColor: AppColors.error,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
+    _questionController.removeListener(_validateQuestionText);
     _questionController.dispose();
     for (var controller in _optionsControllers) {
       controller.dispose();
@@ -71,19 +108,50 @@ class _QuestionEditorState extends State<QuestionEditor> {
 
   void _addOption() {
     setState(() {
-      _optionsControllers.add(TextEditingController(text: 'Option ${_optionsControllers.length + 1}'));
+      final newController = TextEditingController(text: 'Option ${_optionsControllers.length + 1}');
+      // Add listener to validate choice text
+      newController.addListener(() => _validateOptionText(newController));
+      _optionsControllers.add(newController);
       _updateQuestion();
     });
   }
 
-  void _removeOption(int index) {
-    if (_optionsControllers.length > 1) {
-      setState(() {
-        _optionsControllers[index].dispose();
-        _optionsControllers.removeAt(index);
-        _updateQuestion();
-      });
+  void _validateOptionText(TextEditingController controller) {
+    final text = controller.text;
+    if (text.isEmpty) return;
+    
+    // Check character count (1-500 characters)
+    if (text.length > 500) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Choice text must not exceed 500 characters'),
+          backgroundColor: AppColors.error,
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
+  }
+
+  void _removeOption(int index) {
+    // Validate minimum 2 options for choice-based questions
+    if (_optionsControllers.length <= 2) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Choice-based questions must have at least 2 options'),
+            backgroundColor: AppColors.error,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+    
+    setState(() {
+      _optionsControllers[index].dispose();
+      _optionsControllers.removeAt(index);
+      _updateQuestion();
+    });
   }
 
   Future<void> _pickImage() async {
@@ -126,7 +194,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
     }
   }
 
-  Future<void> _pickVideo() async {
+  Future<void> _addVideoUrl() async {
     // Check if image already exists (limit to one media)
     if (widget.question.imageUrl != null && widget.question.imageUrl!.isNotEmpty) {
       if (mounted) {
@@ -141,28 +209,63 @@ class _QuestionEditorState extends State<QuestionEditor> {
       return;
     }
     
-    try {
-      final XFile? video = await _picker.pickVideo(source: ImageSource.gallery);
-      if (video != null) {
-        setState(() {
-          // Clear image and set video
-          widget.onQuestionUpdated(
-            widget.question.copyWith(
-              imageUrl: '',
-              videoUrl: video.path,
+    // Show dialog to enter video URL
+    final TextEditingController urlController = TextEditingController(
+      text: widget.question.videoUrl ?? '',
+    );
+    
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Video URL'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Paste a video URL (YouTube, Vimeo, etc.)',
+              style: TextStyle(fontSize: 14),
             ),
-          );
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to pick video'),
-            backgroundColor: AppColors.error,
+            const SizedBox(height: 12),
+            TextField(
+              controller: urlController,
+              decoration: InputDecoration(
+                hintText: 'https://youtube.com/watch?v=...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                prefixIcon: const Icon(Icons.link),
+              ),
+              keyboardType: TextInputType.url,
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, urlController.text.trim()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+            ),
+            child: const Text('Add', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    
+    if (url != null && url.isNotEmpty) {
+      setState(() {
+        widget.onQuestionUpdated(
+          widget.question.copyWith(
+            imageUrl: '',
+            videoUrl: url,
           ),
         );
-      }
+      });
     }
   }
 
@@ -409,6 +512,16 @@ class _QuestionEditorState extends State<QuestionEditor> {
                   ),
                   onChanged: (_) => _updateQuestion(),
                 ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, top: 4),
+                  child: Text(
+                    '${_questionController.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length}/150 words, ${_questionController.text.length}/2000 chars',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ),
 
                 // Options list for choice questions
                 if (_shouldShowOptions()) _buildOptionsList(),
@@ -458,7 +571,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
                     if (widget.question.videoUrl != null && widget.question.videoUrl!.isNotEmpty)
                       Chip(
                         avatar: const Icon(Icons.videocam, size: 16),
-                        label: const Text('Video attached'),
+                        label: const Text('Video URL added'),
                         deleteIcon: const Icon(Icons.close, size: 16),
                         onDeleted: _removeMedia,
                         backgroundColor: AppColors.accent1.withOpacity(0.1),
@@ -515,10 +628,10 @@ class _QuestionEditorState extends State<QuestionEditor> {
                       ),
                       onPressed: (widget.question.imageUrl != null && widget.question.imageUrl!.isNotEmpty)
                           ? null
-                          : _pickVideo,
+                          : _addVideoUrl,
                       tooltip: (widget.question.imageUrl != null && widget.question.imageUrl!.isNotEmpty)
                           ? 'Remove image first'
-                          : 'Add video',
+                          : 'Add video URL',
                     ),
                   ],
                 ),
@@ -544,6 +657,8 @@ class _QuestionEditorState extends State<QuestionEditor> {
         return 'RATING';
       case QuestionType.dropdown:
         return 'DROPDOWN';
+      case QuestionType.yesNo:
+        return 'YES/NO';
     }
   }
 }
