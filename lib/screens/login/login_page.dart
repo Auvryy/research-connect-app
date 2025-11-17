@@ -5,6 +5,7 @@ import '../../widgets/custom_textfield.dart';
 import '../../widgets/primary_button.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/api/auth_api.dart';
+import 'package:inquira/data/user_info.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -36,11 +37,20 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (response["ok"] == true) {
+        // Load user info and set currentUser
+        final userInfo = await UserInfo.loadUserInfo();
+        if (userInfo != null) {
+          currentUser = userInfo;
+          print('Login successful. Current user: ${currentUser?.username}');
+        }
+        
         // success
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Login successful!")),
-        );
-        Navigator.pushReplacementNamed(context, '/home');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Login successful!")),
+          );
+          Navigator.pushReplacementNamed(context, '/home');
+        }
       } else {
         // failed login
         ScaffoldMessenger.of(context).showSnackBar(
@@ -84,11 +94,11 @@ class _LoginPageState extends State<LoginPage> {
                   color: AppColors.secondary,
                 ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 10),
               CustomTextField(label: "Username", controller: _usernameController),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
               CustomTextField(label: "Password", obscureText: true, controller: _passwordController),
-              const SizedBox(height: 15),
+              const SizedBox(height: 10),
               PrimaryButton(
                 text: _loading ? "Logging in..." : "Login",
                 onPressed: _loading ? null : _loginUser,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:inquira/widgets/custom_choice_chip.dart';
 import 'package:inquira/widgets/survey_card.dart';
-import 'package:inquira/data/mock_survey.dart';
 import 'package:inquira/data/survey_service.dart';
 import 'package:inquira/models/survey.dart';
 
@@ -27,18 +26,17 @@ class _HomeFeedState extends State<HomeFeed> {
     setState(() => _isLoading = true);
     
     try {
-      // Load surveys from local storage
+      // Load surveys from local storage only
       final localSurveys = await SurveyService.getAllSurveys();
       
-      // Combine with mock surveys (mock surveys first, then local)
       setState(() {
-        _allSurveys = [...mockSurveys, ...localSurveys];
+        _allSurveys = localSurveys;
         _isLoading = false;
       });
     } catch (e) {
       print('Error loading surveys: $e');
       setState(() {
-        _allSurveys = mockSurveys;
+        _allSurveys = [];
         _isLoading = false;
       });
     }
@@ -103,16 +101,46 @@ class _HomeFeedState extends State<HomeFeed> {
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _loadSurveys,
-                  child: ListView.builder(
-                    itemCount: filteredSurveys.length,
-                    itemBuilder: (context, index) {
-                      final survey = filteredSurveys[index];
-                      return SurveyCard(survey: survey);
-                    },
-                  ),
-                ),
+              : filteredSurveys.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.poll_outlined,
+                            size: 80,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No surveys yet',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Create your first survey!',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadSurveys,
+                      child: ListView.builder(
+                        itemCount: filteredSurveys.length,
+                        itemBuilder: (context, index) {
+                          final survey = filteredSurveys[index];
+                          return SurveyCard(survey: survey);
+                        },
+                      ),
+                    ),
         ),
       ],
     );

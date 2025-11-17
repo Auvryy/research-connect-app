@@ -4,7 +4,8 @@ import 'question_type.dart';
 class Survey {
   final String id;
   final String title;
-  final String description;
+  final String caption; // Short description for feed
+  final String description; // Full description for survey takers
   final int timeToComplete; // in minutes
   final List<String> tags; // up to 3
   final String targetAudience;
@@ -17,6 +18,7 @@ class Survey {
   Survey({
     required this.id,
     required this.title,
+    this.caption = '',
     required this.description,
     required this.timeToComplete,
     required this.tags,
@@ -37,6 +39,7 @@ class Survey {
     return {
       'id': id,
       'title': title,
+      'caption': caption,
       'description': description,
       'timeToComplete': timeToComplete,
       'tags': tags,
@@ -53,6 +56,7 @@ class Survey {
     return Survey(
       id: json['id'] as String,
       title: json['title'] as String,
+      caption: json['caption'] as String? ?? '',
       description: json['description'] as String,
       timeToComplete: json['timeToComplete'] as int,
       tags: List<String>.from(json['tags']),

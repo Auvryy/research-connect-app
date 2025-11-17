@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/widgets/profile_survey.dart';
-import 'package:inquira/widgets/profile_info_item.dart';
+import 'package:inquira/widgets/change_password_dialog.dart';
 import 'package:inquira/data/user_info.dart';
 import 'package:inquira/data/survey_service.dart';
 import 'package:inquira/models/survey.dart';
+import 'package:inquira/data/api/auth_api.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -21,7 +22,22 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    _loadUserData();
     _loadUserSurveys();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      // Reload user info from SharedPreferences
+      final loadedUser = await UserInfo.loadUserInfo();
+      if (loadedUser != null && mounted) {
+        setState(() {
+          currentUser = loadedUser;
+        });
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+    }
   }
 
   Future<void> _loadUserSurveys() async {
@@ -47,13 +63,126 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Color _getRoleColor(String? role) {
+    if (role == null) return AppColors.secondary;
+    
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return AppColors.error;
+      case 'moderator':
+        return AppColors.orange;
+      case 'premium':
+        return AppColors.purple;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  String _getRoleDisplay(String? role) {
+    if (role == null) return 'User';
+    
+    // Capitalize first letter
+    return role[0].toUpperCase() + role.substring(1).toLowerCase();
+  }
+
+  Future<void> _refreshProfile() async {
+    await Future.wait([
+      _loadUserData(),
+      _loadUserSurveys(),
+    ]);
+  }
+
+  Future<void> _showEditDialog(String title, String field, String? currentValue, IconData icon, Color color) async {
+    final controller = TextEditingController(text: currentValue ?? '');
+    final formKey = GlobalKey<FormState>();
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit $title'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            decoration: InputDecoration(
+              labelText: title,
+              prefixIcon: Icon(icon, color: color),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            keyboardType: field == 'email' ? TextInputType.emailAddress : 
+                         field == 'phone' ? TextInputType.phone : TextInputType.text,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'This field cannot be empty';
+              }
+              if (field == 'email' && !value.contains('@')) {
+                return 'Please enter a valid email';
+              }
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context, true);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: color),
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    
+    if (result == true && mounted) {
+      final newValue = controller.text.trim();
+      if (currentUser != null) {
+        // Update currentUser based on field
+        if (field == 'email') {
+          currentUser = currentUser!.copyWith(email: newValue);
+        } else if (field == 'phone') {
+          currentUser = currentUser!.copyWith(phoneNumber: newValue);
+        } else if (field == 'schoolId') {
+          currentUser = currentUser!.copyWith(schoolId: newValue);
+        } else if (field == 'school') {
+          currentUser = currentUser!.copyWith(school: newValue);
+        } else if (field == 'course') {
+          currentUser = currentUser!.copyWith(course: newValue);
+        }
+        
+        // Save to SharedPreferences
+        await UserInfo.saveUserInfo(currentUser!);
+        setState(() {});
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$title updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    }
+    controller.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+      body: RefreshIndicator(
+        onRefresh: _refreshProfile,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
           // wrap everything in a column
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -61,39 +190,63 @@ class _ProfilePageState extends State<ProfilePage> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 40,
-                  backgroundImage: AssetImage('assets/images/guts-image.jpeg'),
+                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                  backgroundImage: currentUser?.profilePicUrl != null && currentUser!.profilePicUrl!.isNotEmpty
+                      ? NetworkImage(currentUser!.profilePicUrl!)
+                      : null,
+                  child: currentUser?.profilePicUrl == null || currentUser!.profilePicUrl!.isEmpty
+                      ? Icon(
+                          Icons.person,
+                          size: 40,
+                          color: AppColors.primary.withOpacity(0.5),
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 16), // spacing between image and text
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      currentUser.name,
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        currentUser?.username ?? 'User',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      currentUser.course,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.secondary,
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getRoleColor(currentUser?.role),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _getRoleDisplay(currentUser?.role),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      currentUser.school,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.secondary,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit, color: AppColors.primary),
+                  onPressed: () async {
+                    final result = await Navigator.pushNamed(context, '/edit-profile');
+                    if (result == true && mounted) {
+                      // Reload user data and page
+                      await _loadUserData();
+                      setState(() {});
+                    }
+                  },
+                  tooltip: 'Edit Profile',
                 ),
               ],
             ),
@@ -137,7 +290,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 const SizedBox(width: 10),
                 _TabButton(
-                  text: "Profile Information",
+                  text: "Settings",
                   isSelected: _selectedTab == 1,
                   onTap: () => setState(() => _selectedTab = 1),
                 ),
@@ -198,40 +351,142 @@ class _ProfilePageState extends State<ProfilePage> {
             else
               Column(
                 children: [
-                  ProfileInfoItem(
-                    icon: Icons.person,
-                    label: "Full Name",
-                    value: currentUser.name,
-                    iconColor: AppColors.blue,
+                  // Profile Information Header
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'Additional Information',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
                   ),
-                  ProfileInfoItem(
-                    icon: Icons.mail,
-                    label: "Email",
-                    value: currentUser.email,
-                    iconColor: AppColors.purple,
+                  _SettingsItem(
+                    icon: Icons.email,
+                    label: currentUser?.email != null && currentUser!.email!.isNotEmpty
+                        ? currentUser!.email!
+                        : "Email (Not set)",
+                    onTap: () => _showEditDialog('Email', 'email', currentUser?.email, Icons.email, Colors.purple),
+                    iconColor: Colors.purple,
                   ),
-                  ProfileInfoItem(
+                  const SizedBox(height: 12),
+                  _SettingsItem(
                     icon: Icons.phone,
-                    label: "Phone Number",
-                    value: currentUser.phone,
-                    iconColor: AppColors.green,
+                    label: currentUser?.phoneNumber != null && currentUser!.phoneNumber!.isNotEmpty
+                        ? currentUser!.phoneNumber!
+                        : "Phone Number (Not set)",
+                    onTap: () => _showEditDialog('Phone Number', 'phone', currentUser?.phoneNumber, Icons.phone, Colors.green),
+                    iconColor: Colors.green,
                   ),
-                  ProfileInfoItem(
+                  const SizedBox(height: 12),
+                  _SettingsItem(
+                    icon: Icons.badge,
+                    label: currentUser?.schoolId != null && currentUser!.schoolId!.isNotEmpty
+                        ? currentUser!.schoolId!
+                        : "School ID (Not set)",
+                    onTap: () => _showEditDialog('School ID', 'schoolId', currentUser?.schoolId, Icons.badge, Colors.orange),
+                    iconColor: Colors.orange,
+                  ),
+                  const SizedBox(height: 12),
+                  _SettingsItem(
                     icon: Icons.school,
-                    label: "School",
-                    value: currentUser.school,
-                    iconColor: AppColors.orange,
+                    label: currentUser?.school != null && currentUser!.school!.isNotEmpty
+                        ? currentUser!.school!
+                        : "School (Not set)",
+                    onTap: () => _showEditDialog('School', 'school', currentUser?.school, Icons.school, Colors.red),
+                    iconColor: Colors.red,
                   ),
-                  ProfileInfoItem(
+                  const SizedBox(height: 12),
+                  _SettingsItem(
                     icon: Icons.book,
-                    label: "Course",
-                    value: currentUser.course,
-                    iconColor: AppColors.pink,
+                    label: currentUser?.course != null && currentUser!.course!.isNotEmpty
+                        ? currentUser!.course!
+                        : "Course (Not set)",
+                    onTap: () => _showEditDialog('Course', 'course', currentUser?.course, Icons.book, Colors.cyan),
+                    iconColor: Colors.cyan,
+                  ),
+                  const SizedBox(height: 20),
+                  // Account Actions Header
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'Account Actions',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                  _SettingsItem(
+                    icon: Icons.lock,
+                    label: "Change Password",
+                    onTap: () async {
+                      await showDialog(
+                        context: context,
+                        builder: (context) => const ChangePasswordDialog(),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _SettingsItem(
+                    icon: Icons.logout,
+                    label: "Logout",
+                    onTap: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Logout'),
+                          content: const Text('Are you sure you want to logout?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.error,
+                              ),
+                              child: const Text('Logout', style: TextStyle(color: Colors.white)),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirm == true && mounted) {
+                        try {
+                          await AuthAPI.logout();
+                          await UserInfo.clearUserInfo();
+                          currentUser = null;
+                          
+                          if (mounted) {
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              '/login',
+                              (route) => false,
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error logging out: $e'),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    iconColor: AppColors.error,
+                    textColor: AppColors.error,
                   ),
                 ],
               ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -295,6 +550,70 @@ class _TabButton extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? iconColor;
+  final Color? textColor;
+
+  const _SettingsItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.iconColor,
+    this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: (iconColor ?? AppColors.primary).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: iconColor ?? AppColors.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: textColor ?? Colors.black87,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 18,
+              color: Colors.grey[400],
+            ),
+          ],
         ),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:inquira/models/survey_creation.dart';
 import 'package:inquira/widgets/custom_textfield.dart';
 import 'package:inquira/widgets/tag_selector.dart';
 import 'package:inquira/widgets/primary_button.dart';
+import 'package:inquira/data/draft_service.dart';
 
 class CreateSurveyPage extends StatefulWidget {
   const CreateSurveyPage({super.key});
@@ -18,6 +19,7 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
   final _descriptionController = TextEditingController();
   int _selectedTime = 5;
   final List<String> _selectedTags = [];
+  bool _isLoadingDraft = true;
 
   final List<int> _availableTimes = [5, 15, 30, 45, 60];
   final List<String> _availableTags = [
@@ -34,6 +36,40 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadDraft();
+    
+    // Add listeners to update character counters
+    _titleController.addListener(() {
+      setState(() {});
+    });
+    _captionController.addListener(() {
+      setState(() {});
+    });
+    _descriptionController.addListener(() {
+      setState(() {});
+    });
+  }
+
+  Future<void> _loadDraft() async {
+    final draft = await DraftService.loadDraft();
+    if (draft != null && mounted) {
+      setState(() {
+        _titleController.text = draft.title;
+        _captionController.text = draft.caption;
+        _descriptionController.text = draft.description;
+        _selectedTime = draft.timeToComplete;
+        _selectedTags.clear();
+        _selectedTags.addAll(draft.tags);
+        _isLoadingDraft = false;
+      });
+    } else {
+      setState(() => _isLoadingDraft = false);
+    }
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _captionController.dispose();
@@ -41,12 +77,86 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
     super.dispose();
   }
 
-  void _proceedToNextPage() {
-    if (_titleController.text.isEmpty) {
+  Future<void> _proceedToNextPage() async {
+    final title = _titleController.text.trim();
+    final caption = _captionController.text.trim();
+    final description = _descriptionController.text.trim();
+
+    // Validate title (4-40 words, max 512 characters)
+    if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a title')),
       );
       return;
+    }
+    final titleWords = title.split(RegExp(r'\s+'));
+    if (titleWords.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Title must be at least 4 words')),
+      );
+      return;
+    }
+    if (titleWords.length > 40) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Title must not exceed 40 words')),
+      );
+      return;
+    }
+    if (title.length > 512) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Title must not exceed 512 characters')),
+      );
+      return;
+    }
+
+    // Validate caption (4-40 words, max 512 characters)
+    if (caption.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a caption')),
+      );
+      return;
+    }
+    final captionWords = caption.split(RegExp(r'\s+'));
+    if (captionWords.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Caption must be at least 4 words')),
+      );
+      return;
+    }
+    if (captionWords.length > 40) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Caption must not exceed 40 words')),
+      );
+      return;
+    }
+    if (caption.length > 512) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Caption must not exceed 512 characters')),
+      );
+      return;
+    }
+
+    // Validate description if provided (20-100 words, max 5000 characters)
+    if (description.isNotEmpty) {
+      final descWords = description.split(RegExp(r'\s+'));
+      if (descWords.length < 20) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Description must be at least 20 words')),
+        );
+        return;
+      }
+      if (descWords.length > 100) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Description must not exceed 100 words')),
+        );
+        return;
+      }
+      if (description.length > 5000) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Description must not exceed 5000 characters')),
+        );
+        return;
+      }
     }
 
     if (_selectedTags.isEmpty) {
@@ -56,29 +166,74 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
       return;
     }
 
+    // Load existing draft to preserve questions and sections
+    final existingDraft = await DraftService.loadDraft();
+
     final surveyData = SurveyCreation(
       title: _titleController.text,
       caption: _captionController.text,
       description: _descriptionController.text,
       timeToComplete: _selectedTime,
       tags: _selectedTags,
+      targetAudience: existingDraft?.targetAudience ?? [],
+      questions: existingDraft?.questions ?? [],
+      sections: existingDraft?.sections ?? [],
     );
 
-    Navigator.pushNamed(
-      context,
-      '/create-survey/audience',
-      arguments: surveyData,
-    );
+    // Save draft before navigating
+    await DraftService.saveDraft(surveyData);
+
+    if (mounted) {
+      Navigator.pushNamed(
+        context,
+        '/create-survey/audience',
+        arguments: surveyData,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingDraft) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () async {
+            // Ask user if they want to continue editing or discard
+            await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Save Progress?'),
+                content: const Text('Your progress is automatically saved. Do you want to continue editing later?'),
+                actions: [
+                  TextButton(
+                    onPressed: () async {
+                      await DraftService.clearDraft();
+                      if (context.mounted) Navigator.pop(context, false);
+                    },
+                    child: const Text('Discard All'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                    ),
+                    child: const Text('Keep Draft', style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            );
+            
+            // Draft is already saved, just close
+            if (context.mounted) Navigator.of(context).pop();
+          },
         ),
         title: const Text(
           'Create Survey',
@@ -100,20 +255,47 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
             CustomTextField(
               controller: _titleController,
               label: 'Survey Title',
-              maxLength: 100,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, top: 4),
+              child: Text(
+                '${_titleController.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length}/40 words, ${_titleController.text.length}/512 chars',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             CustomTextField(
               controller: _captionController,
               label: 'Caption',
-              maxLength: 150,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, top: 4),
+              child: Text(
+                '${_captionController.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length}/40 words, ${_captionController.text.length}/512 chars',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             CustomTextField(
               controller: _descriptionController,
-              label: 'Detailed Description',
-              maxLength: 500,
+              label: 'Detailed Description (Optional)',
               maxLines: 5,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, top: 4),
+              child: Text(
+                '${_descriptionController.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length}/100 words, ${_descriptionController.text.length}/5000 chars',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
             ),
             const SizedBox(height: 24),
             const Text(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/user_info.dart';
 import 'package:inquira/data/api/auth_api.dart';
+import 'package:inquira/data/survey_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -12,6 +13,28 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _isDarkMode = false;
+
+  Color _getRoleColor(String? role) {
+    if (role == null) return AppColors.secondary;
+    
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return AppColors.error;
+      case 'moderator':
+        return AppColors.orange;
+      case 'premium':
+        return AppColors.purple;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  String _getRoleDisplay(String? role) {
+    if (role == null) return 'User';
+    
+    // Capitalize first letter
+    return role[0].toUpperCase() + role.substring(1).toLowerCase();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,31 +71,39 @@ class _SettingsPageState extends State<SettingsPage> {
                 // Profile Image
                 Stack(
                   children: [
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.primary,
-                        image: const DecorationImage(
-                          image: AssetImage('assets/images/guts-image.jpeg'),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                    CircleAvatar(
+                      radius: 45,
+                      backgroundColor: AppColors.primary.withOpacity(0.1),
+                      backgroundImage: currentUser?.profilePicUrl != null && currentUser!.profilePicUrl!.isNotEmpty
+                          ? NetworkImage(currentUser!.profilePicUrl!)
+                          : null,
+                      child: currentUser?.profilePicUrl == null || currentUser!.profilePicUrl!.isEmpty
+                          ? Icon(
+                              Icons.person,
+                              size: 45,
+                              color: AppColors.primary.withOpacity(0.5),
+                            )
+                          : null,
                     ),
                     Positioned(
                       bottom: 0,
                       right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          size: 16,
-                          color: Colors.white,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(context, '/edit-profile');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            size: 14,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -81,7 +112,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(height: 16),
                 // User Name
                 Text(
-                  "Dr. ${currentUser.name.split(' ')[0]} ${currentUser.name.split(' ')[currentUser.name.split(' ').length - 1]}",
+                  currentUser?.username ?? 'User',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -89,24 +120,23 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                // Course
-                Text(
-                  currentUser.course,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.secondaryText,
+                // Role Badge
+                if (currentUser?.role != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _getRoleColor(currentUser?.role),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      _getRoleDisplay(currentUser?.role),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                // School
-                Text(
-                  currentUser.school,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
               ],
             ),
           ),
@@ -149,6 +179,65 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const Divider(height: 1),
                 ListTile(
+                  leading: const Icon(Icons.delete_sweep, color: Colors.orange),
+                  title: const Text(
+                    "Clear All Surveys (Debug)",
+                    style: TextStyle(color: Colors.orange),
+                  ),
+                  subtitle: const Text("Delete all locally stored surveys"),
+                  onTap: () {
+                    // Show confirmation dialog
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text("Clear All Surveys"),
+                          content: const Text(
+                            "This will permanently delete all surveys from local storage. This action cannot be undone. Continue?",
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text("Cancel"),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                try {
+                                  await SurveyService.clearAllSurveys();
+                                  // Close the dialog
+                                  Navigator.of(context).pop();
+                                  // Show success message
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('All surveys cleared successfully!'),
+                                      backgroundColor: Colors.green,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                } catch (e) {
+                                  // Show error message
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Failed to clear surveys: ${e.toString()}'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  Navigator.of(context).pop();
+                                }
+                              },
+                              child: const Text(
+                                "Clear All",
+                                style: TextStyle(color: Colors.orange),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
                   leading: const Icon(Icons.logout, color: AppColors.pink),
                   title: const Text(
                     "Log Out",
@@ -170,23 +259,44 @@ class _SettingsPageState extends State<SettingsPage> {
                             TextButton(
                               onPressed: () async {
                                 try {
-                                  await AuthAPI.logout();
+                                  final result = await AuthAPI.logout();
+                                  
+                                  // Clear current user
+                                  currentUser = null;
+                                  
                                   // Close the dialog
-                                  Navigator.of(context).pop();
-                                  // Navigate to login page and remove all previous routes
-                                  Navigator.of(context).pushNamedAndRemoveUntil(
-                                    '/login',
-                                    (Route<dynamic> route) => false,
-                                  );
+                                  if (mounted) {
+                                    Navigator.of(context).pop();
+                                  }
+                                  
+                                  if (result['ok'] == true) {
+                                    // Navigate to login page and remove all previous routes
+                                    if (mounted) {
+                                      Navigator.of(context).pushNamedAndRemoveUntil(
+                                        '/login',
+                                        (Route<dynamic> route) => false,
+                                      );
+                                    }
+                                  } else {
+                                    // Even if API logout fails, still redirect to login
+                                    // since local data is cleared
+                                    if (mounted) {
+                                      Navigator.of(context).pushNamedAndRemoveUntil(
+                                        '/login',
+                                        (Route<dynamic> route) => false,
+                                      );
+                                    }
+                                  }
                                 } catch (e) {
-                                  // Show error message if logout fails
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Failed to logout: ${e.toString()}'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  Navigator.of(context).pop();
+                                  // Clear user and redirect even on error
+                                  currentUser = null;
+                                  if (mounted) {
+                                    Navigator.of(context).pop();
+                                    Navigator.of(context).pushNamedAndRemoveUntil(
+                                      '/login',
+                                      (Route<dynamic> route) => false,
+                                    );
+                                  }
                                 }
                               },
                               child: const Text(

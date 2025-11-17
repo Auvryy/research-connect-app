@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/models/survey_creation.dart';
 import 'package:inquira/widgets/primary_button.dart';
+import 'package:inquira/data/draft_service.dart';
 
 class TargetAudiencePage extends StatefulWidget {
   final SurveyCreation surveyData;
@@ -37,7 +38,7 @@ class _TargetAudiencePageState extends State<TargetAudiencePage> {
     _selectedAudiences.addAll(widget.surveyData.targetAudience);
   }
 
-  void _proceedToQuestions() {
+  Future<void> _proceedToQuestions() async {
     if (_selectedAudiences.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -61,11 +62,16 @@ class _TargetAudiencePageState extends State<TargetAudiencePage> {
       isDraft: widget.surveyData.isDraft,
     );
 
-    Navigator.pushNamed(
-      context,
-      '/create-survey/questions',
-      arguments: updatedSurvey,
-    );
+    // Save draft before navigating
+    await DraftService.saveDraft(updatedSurvey);
+
+    if (mounted) {
+      Navigator.pushNamed(
+        context,
+        '/create-survey/questions',
+        arguments: updatedSurvey,
+      );
+    }
   }
 
   @override

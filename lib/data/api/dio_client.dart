@@ -6,8 +6,10 @@ import 'package:path_provider/path_provider.dart';
 
 class DioClient {
   static Dio? _dio;
+  static Dio? _dioOtp;
   static CookieJar? _cookieJar;
   static bool _initializing = false;
+  static bool _initializingOtp = false;
 
   static Future<Dio> get instance async {
     if (_dio == null) {
@@ -58,6 +60,37 @@ class DioClient {
         dio.interceptors.add(CookieManager(_cookieJar!));
       }
 
+      // Add interceptor for automatic token refresh
+      dio.interceptors.add(InterceptorsWrapper(
+        onError: (DioException error, ErrorInterceptorHandler handler) async {
+          // If we get a 401, try to refresh token
+          if (error.response?.statusCode == 401) {
+            print('DioClient: Received 401, attempting token refresh...');
+            try {
+              final refreshResponse = await dio.post('/refresh');
+              if (refreshResponse.statusCode == 200) {
+                print('DioClient: Token refreshed, retrying original request...');
+                // Retry the original request
+                final options = error.requestOptions;
+                final response = await dio.request(
+                  options.path,
+                  data: options.data,
+                  queryParameters: options.queryParameters,
+                  options: Options(
+                    method: options.method,
+                    headers: options.headers,
+                  ),
+                );
+                return handler.resolve(response);
+              }
+            } catch (e) {
+              print('DioClient: Token refresh failed: $e');
+            }
+          }
+          return handler.next(error);
+        },
+      ));
+
       // Add logging interceptor for debugging
       dio.interceptors.add(LogInterceptor(
         requestHeader: true,
@@ -73,6 +106,54 @@ class DioClient {
       rethrow;
     } finally {
       _initializing = false;
+    }
+  }
+
+  static Future<void> initOtp() async {
+    if (_dioOtp != null || _initializingOtp) return;
+    _initializingOtp = true;
+
+    try {
+      // Ensure base client is initialized for cookie sharing
+      await init();
+
+      final dioOtp = Dio(
+        BaseOptions(
+          baseUrl: 'http://10.0.2.2:5000/api/otp',
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          validateStatus: (status) {
+            return status != null && status < 500;
+          },
+          followRedirects: true,
+          receiveDataWhenStatusError: true,
+        ),
+      );
+
+      // Share cookie jar with main client
+      if (_cookieJar != null) {
+        dioOtp.interceptors.add(CookieManager(_cookieJar!));
+      }
+
+      // Add logging interceptor
+      dioOtp.interceptors.add(LogInterceptor(
+        requestHeader: true,
+        requestBody: true,
+        responseHeader: true,
+        responseBody: true,
+        error: true,
+      ));
+
+      _dioOtp = dioOtp;
+    } catch (e) {
+      print('Error initializing DioClient OTP: $e');
+      rethrow;
+    } finally {
+      _initializingOtp = false;
     }
   }
 
@@ -151,6 +232,218 @@ class DioClient {
       } else {
         throw e.message ?? 'An error occurred';
       }
+    }
+  }
+
+  static Future<dynamic> put(String path, {Map<String, dynamic>? data}) async {
+    final dio = await instance;
+    try {
+      print('Making PUT request to: ${dio.options.baseUrl}$path');
+      print('Request data: $data');
+      
+      final response = await dio.put(
+        path,
+        data: data,
+        options: Options(
+          followRedirects: true,
+          validateStatus: (status) => status! < 500,
+          headers: {
+            'Accept': 'application/json',
+          },
+        ),
+      );
+      
+      print('Response status: ${response.statusCode}');
+      print('Response data: ${response.data}');
+      
+      return response.data;
+    } on DioException catch (e) {
+      print('DioError Type: ${e.type}');
+      print('Error Message: ${e.message}');
+      print('Error Response: ${e.response}');
+      
+      if (e.response?.data is Map) {
+        throw e.response?.data['message'] ?? 'An error occurred';
+      } else if (e.response?.data is String) {
+        throw e.response?.data ?? 'An error occurred';
+      } else {
+        throw e.message ?? 'An error occurred';
+      }
+    }
+  }
+
+  static Future<dynamic> delete(String path) async {
+    final dio = await instance;
+    try {
+      print('Making DELETE request to: ${dio.options.baseUrl}$path');
+      
+      final response = await dio.delete(
+        path,
+        options: Options(
+          followRedirects: true,
+          validateStatus: (status) => status! < 500,
+          headers: {
+            'Accept': 'application/json',
+          },
+        ),
+      );
+      
+      print('Response status: ${response.statusCode}');
+      print('Response data: ${response.data}');
+      
+      return response.data;
+    } on DioException catch (e) {
+      print('DioError Type: ${e.type}');
+      print('Error Message: ${e.message}');
+      print('Error Response: ${e.response}');
+      
+      if (e.response?.data is Map) {
+        throw e.response?.data['message'] ?? 'An error occurred';
+      } else if (e.response?.data is String) {
+        throw e.response?.data ?? 'An error occurred';
+      } else {
+        throw e.message ?? 'An error occurred';
+      }
+    }
+  }
+
+  static Future<dynamic> uploadFile(
+    String path,
+    dynamic file,
+    {String fieldName = 'file', String method = 'POST'}
+  ) async {
+    final dio = await instance;
+    try {
+      print('Making file upload request ($method) to: ${dio.options.baseUrl}$path');
+      
+      String fileName = 'upload';
+      if (file is File) {
+        fileName = file.path.split('/').last;
+      }
+      
+      final formData = FormData.fromMap({
+        fieldName: await MultipartFile.fromFile(
+          file is File ? file.path : file.toString(),
+          filename: fileName,
+        ),
+      });
+      
+      final response = await dio.request(
+        path,
+        data: formData,
+        options: Options(
+          method: method,
+          followRedirects: true,
+          validateStatus: (status) => status! < 500,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        ),
+      );
+      
+      print('Response status: ${response.statusCode}');
+      print('Response data: ${response.data}');
+      
+      return response.data;
+    } on DioException catch (e) {
+      print('DioError Type: ${e.type}');
+      print('Error Message: ${e.message}');
+      print('Error Response: ${e.response}');
+      
+      if (e.response?.data is Map) {
+        throw e.response?.data['message'] ?? 'An error occurred';
+      } else if (e.response?.data is String) {
+        throw e.response?.data ?? 'An error occurred';
+      } else {
+        throw e.message ?? 'An error occurred';
+      }
+    }
+  }
+
+  // OTP-specific methods
+  static Future<dynamic> postOtp(String path, {Map<String, dynamic>? data}) async {
+    if (_dioOtp == null) await initOtp();
+    try {
+      print('Making POST request to OTP endpoint: ${_dioOtp!.options.baseUrl}$path');
+      print('Request data: $data');
+      
+      final response = await _dioOtp!.post(
+        path,
+        data: data,
+        options: Options(
+          followRedirects: true,
+          validateStatus: (status) => status! < 500,
+          headers: {
+            'Accept': 'application/json',
+          },
+        ),
+      );
+      
+      print('Response status: ${response.statusCode}');
+      print('Response data: ${response.data}');
+      
+      return response.data;
+    } on DioException catch (e) {
+      print('DioError Type: ${e.type}');
+      print('Error Message: ${e.message}');
+      print('Error Response: ${e.response}');
+      
+      if (e.response?.data is Map) {
+        throw e.response?.data['message'] ?? 'An error occurred';
+      } else if (e.response?.data is String) {
+        throw e.response?.data ?? 'An error occurred';
+      } else {
+        throw e.message ?? 'An error occurred';
+      }
+    }
+  }
+
+  static Future<dynamic> patchOtp(String path, {Map<String, dynamic>? data}) async {
+    if (_dioOtp == null) await initOtp();
+    try {
+      print('Making PATCH request to OTP endpoint: ${_dioOtp!.options.baseUrl}$path');
+      print('Request data: $data');
+      
+      final response = await _dioOtp!.patch(
+        path,
+        data: data,
+        options: Options(
+          followRedirects: true,
+          validateStatus: (status) => status! < 500,
+          headers: {
+            'Accept': 'application/json',
+          },
+        ),
+      );
+      
+      print('Response status: ${response.statusCode}');
+      print('Response data: ${response.data}');
+      
+      return response.data;
+    } on DioException catch (e) {
+      print('DioError Type: ${e.type}');
+      print('Error Message: ${e.message}');
+      print('Error Response: ${e.response}');
+      
+      if (e.response?.data is Map) {
+        throw e.response?.data['message'] ?? 'An error occurred';
+      } else if (e.response?.data is String) {
+        throw e.response?.data ?? 'An error occurred';
+      } else {
+        throw e.message ?? 'An error occurred';
+      }
+    }
+  }
+
+  /// Clear all cookies (used during logout)
+  static Future<void> clearCookies() async {
+    try {
+      if (_cookieJar != null) {
+        await _cookieJar!.deleteAll();
+        print('DioClient: Cookies cleared');
+      }
+    } catch (e) {
+      print('DioClient: Error clearing cookies: $e');
     }
   }
 }

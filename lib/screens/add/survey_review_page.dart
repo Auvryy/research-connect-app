@@ -4,6 +4,7 @@ import 'package:inquira/models/question_type.dart';
 import 'package:inquira/models/survey_creation.dart';
 import 'package:inquira/widgets/primary_button.dart';
 import 'package:inquira/data/survey_service.dart';
+import 'package:inquira/data/draft_service.dart';
 
 class SurveyReviewPage extends StatelessWidget {
   final SurveyCreation surveyData;
@@ -64,6 +65,8 @@ class SurveyReviewPage extends StatelessWidget {
         return 'Rating (Stars)';
       case QuestionType.dropdown:
         return 'Dropdown';
+      case QuestionType.yesNo:
+        return 'Yes/No';
     }
   }
 
@@ -157,19 +160,14 @@ class SurveyReviewPage extends StatelessWidget {
         ),
       );
 
-      print('Starting survey publish...');
+      print('Saving survey to local storage (Backend disconnected for debugging)...');
       
-      // Get current user ID
+      // Save directly to local storage without backend
       final userId = await SurveyService.getCurrentUserId();
-      print('User ID: $userId');
-      
-      // Convert SurveyCreation to Survey
       final survey = SurveyService.surveyCreationToSurvey(surveyData, userId);
-      print('Survey converted: ${survey.id}');
+      await SurveyService.saveSurvey(survey);
       
-      // Save to local storage
-      final success = await SurveyService.saveSurvey(survey);
-      print('Save result: $success');
+      print('Survey saved locally: ${survey.toJson()}');
       
       if (!context.mounted) return;
       
@@ -179,22 +177,21 @@ class SurveyReviewPage extends StatelessWidget {
         isDialogShowing = false;
       }
       
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Survey published successfully! 🎉'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-        
-        // Navigate back to home
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (context.mounted) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        }
-      } else {
-        throw Exception('Failed to save survey to local storage');
+      // Clear draft after successful save
+      await DraftService.clearDraft();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Survey saved locally! 🎉 (Debug Mode)'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      
+      // Navigate back to home
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (context.mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e, stackTrace) {
       print('Error publishing survey: $e');
