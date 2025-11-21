@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/models/survey_response.dart';
@@ -517,6 +518,78 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
                   ),
               ],
             ),
+            
+            // Image preview if exists
+            if (question['imageUrl'] != null && question['imageUrl'].toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(question['imageUrl'].toString()),
+                    width: double.infinity,
+                    height: 200,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 200,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.broken_image, size: 48, color: Colors.grey[400]),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Unable to load image',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            
+            // Video URL display if exists
+            if (question['videoUrl'] != null && question['videoUrl'].toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent1.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.accent1.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.videocam,
+                        color: AppColors.accent1,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          question['videoUrl'].toString(),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.accent1,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             
             const SizedBox(height: 16),
             

@@ -27,24 +27,59 @@ class SurveyReviewPage extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+  Widget _buildInfoItem(String label, String value, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.secondaryBG,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: AppColors.secondary,
-                fontWeight: FontWeight.w500,
-              ),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              size: 24,
+              color: AppColors.primary,
             ),
           ),
+          const SizedBox(width: 16),
           Expanded(
-            child: Text(value),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: AppColors.secondary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: AppColors.primaryText,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -72,77 +107,65 @@ class SurveyReviewPage extends StatelessWidget {
     }
   }
 
-  Widget _buildQuestionPreview(SurveyQuestion question) {
+  Widget _buildQuestionPreview(SurveyQuestion question, int index) {
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      elevation: 1,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: AppColors.primary,
+          radius: 16,
+          child: Text(
+            '${index + 1}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        title: Text(
+          question.text.isEmpty ? '(No question text)' : question.text,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    question.text.isEmpty ? '(No question text)' : question.text,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
+            if (question.required)
+              const Padding(
+                padding: EdgeInsets.only(right: 8),
+                child: Text(
+                  '*',
+                  style: TextStyle(
+                    color: AppColors.error,
+                    fontSize: 16,
                   ),
-                ),
-                if (question.required)
-                  const Text(
-                    '*',
-                    style: TextStyle(
-                      color: AppColors.error,
-                      fontSize: 16,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Type: ${_getQuestionTypeDisplay(question.type)}',
-              style: TextStyle(
-                color: AppColors.secondary,
-                fontSize: 14,
-              ),
-            ),
-            if (question.options.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Options:',
-                style: TextStyle(
-                  color: AppColors.secondary,
-                  fontSize: 14,
                 ),
               ),
-              ...question.options.map((option) => Padding(
-                    padding: const EdgeInsets.only(left: 16, top: 4),
-                    child: Text('• $option'),
-                  )),
-            ],
-            if (question.imageUrl != null || question.videoUrl != null) ...[
-              const SizedBox(height: 8),
-              if (question.imageUrl != null)
-                Text(
-                  'Has attached image',
-                  style: TextStyle(
-                    color: AppColors.accent1,
-                    fontSize: 14,
-                  ),
-                ),
-              if (question.videoUrl != null)
-                Text(
-                  'Has attached video',
-                  style: TextStyle(
-                    color: AppColors.accent1,
-                    fontSize: 14,
-                  ),
-                ),
-            ],
+            if (question.imageUrl != null && question.imageUrl!.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Icon(Icons.image, size: 18, color: AppColors.accent1),
+              ),
+            if (question.videoUrl != null && question.videoUrl!.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Icon(Icons.videocam, size: 18, color: AppColors.accent1),
+              ),
           ],
+        ),
+        subtitle: Text(
+          _getQuestionTypeDisplay(question.type),
+          style: TextStyle(
+            color: AppColors.secondary,
+            fontSize: 14,
+          ),
         ),
       ),
     );
@@ -247,17 +270,19 @@ class SurveyReviewPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionHeader('Survey Information'),
-            _buildInfoItem('Title', surveyData.title),
-            _buildInfoItem('Caption', surveyData.caption),
-            _buildInfoItem('Description', surveyData.description),
+            _buildInfoItem('Title', surveyData.title, Icons.title),
+            _buildInfoItem('Caption', surveyData.caption, Icons.short_text),
+            _buildInfoItem('Description', surveyData.description, Icons.description),
             _buildInfoItem(
-                'Time to Complete', '${surveyData.timeToComplete} minutes'),
-            _buildInfoItem('Tags', surveyData.tags.join(', ')),
-            _buildInfoItem('Target Audience', surveyData.targetAudience.join(', ')),
-            const SizedBox(height: 16),
-            _buildSectionHeader('Questions'),
+                'Time to Complete', '${surveyData.timeToComplete} minutes', Icons.timer),
+            _buildInfoItem('Tags', surveyData.tags.join(', '), Icons.label),
+            _buildInfoItem('Target Audience', surveyData.targetAudience.join(', '), Icons.people),
+            const SizedBox(height: 24),
+            _buildSectionHeader('Questions (${surveyData.questions.length})'),
             ...surveyData.questions
-                .map((question) => _buildQuestionPreview(question)),
+                .asMap()
+                .entries
+                .map((entry) => _buildQuestionPreview(entry.value, entry.key)),
           ],
         ),
       ),

@@ -239,8 +239,8 @@ This document shows the exact JSON formats that the Flutter mobile app sends to 
 | **minChoice** | Integer/null | Conditional | Min selections (checkBox only) |
 | **maxChoice** | Integer/null | Conditional | Max selections (checkBox only) |
 | **maxRating** | Integer/null | Conditional | Number of stars for rating (1-5, rating only) |
-| **imageUrl** | String/null | Optional | Image URL for question |
-| **videoUrl** | String/null | Optional | YouTube/video URL |
+| **imageUrl** | String/null | Optional | Local file path to image (picked from device) |
+| **videoUrl** | String/null | Optional | Video URL (YouTube, Vimeo, etc.) |
 
 ### Question Types:
 
@@ -267,6 +267,12 @@ This document shows the exact JSON formats that the Flutter mobile app sends to 
   - When answering, user selects one star from available stars
   - Response is integer (1 to maxRating value)
   - `rating` type does NOT use the `options` array
+- **Media Attachments:**
+  - Only ONE media item per question (either image OR video, not both)
+  - **Image**: User picks from device gallery, stored as local file path
+    - Shows image preview during survey creation and taking
+  - **Video**: User enters URL (YouTube, Vimeo, etc.)
+    - Shows clickable video link during survey creation and taking
 
 ---
 

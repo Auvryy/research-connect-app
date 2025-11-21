@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/models/survey_creation.dart';
@@ -301,6 +302,133 @@ class _QuestionEditorState extends State<QuestionEditor> {
   void _removeMedia() {
     // Clear both image and video URLs
     _updateQuestion(imageUrl: '', videoUrl: '');
+  }
+
+  Widget _buildImagePreview() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.image, size: 18, color: AppColors.accent1),
+              const SizedBox(width: 8),
+              const Text(
+                'Image Preview',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: _removeMedia,
+                tooltip: 'Remove image',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              File(widget.question.imageUrl!),
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image, size: 48, color: Colors.grey[400]),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Unable to load image',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoUrlDisplay() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.accent1.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.accent1.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.accent1.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.videocam,
+              color: AppColors.accent1,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Video URL',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.question.videoUrl!,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.accent1,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.close, size: 20),
+            onPressed: _removeMedia,
+            tooltip: 'Remove video',
+          ),
+        ],
+      ),
+    );
   }
 
   bool _shouldShowOptions() {
@@ -701,29 +829,12 @@ class _QuestionEditorState extends State<QuestionEditor> {
 
                 const SizedBox(height: 16),
 
-                // Media attachments
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (widget.question.imageUrl != null && widget.question.imageUrl!.isNotEmpty)
-                      Chip(
-                        avatar: const Icon(Icons.image, size: 16),
-                        label: const Text('Image attached'),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: _removeMedia,
-                        backgroundColor: AppColors.accent1.withOpacity(0.1),
-                      ),
-                    if (widget.question.videoUrl != null && widget.question.videoUrl!.isNotEmpty)
-                      Chip(
-                        avatar: const Icon(Icons.videocam, size: 16),
-                        label: const Text('Video URL added'),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: _removeMedia,
-                        backgroundColor: AppColors.accent1.withOpacity(0.1),
-                      ),
-                  ],
-                ),
+                // Media attachments with preview
+                if (widget.question.imageUrl != null && widget.question.imageUrl!.isNotEmpty)
+                  _buildImagePreview(),
+                
+                if (widget.question.videoUrl != null && widget.question.videoUrl!.isNotEmpty)
+                  _buildVideoUrlDisplay(),
 
                 const Divider(height: 24),
 

@@ -17,7 +17,9 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
   final _titleController = TextEditingController();
   final _captionController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _customTimeController = TextEditingController();
   int _selectedTime = 5;
+  bool _useCustomTime = false;
   final List<String> _selectedTags = [];
   bool _isLoadingDraft = true;
 
@@ -308,18 +310,56 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
-              children: _availableTimes.map((time) {
-                return ChoiceChip(
-                  label: Text('$time mins'),
-                  selected: _selectedTime == time,
+              runSpacing: 8,
+              children: [
+                ..._availableTimes.map((time) {
+                  return ChoiceChip(
+                    label: Text('$time mins'),
+                    selected: !_useCustomTime && _selectedTime == time,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          _selectedTime = time;
+                          _useCustomTime = false;
+                        });
+                      }
+                    },
+                  );
+                }),
+                ChoiceChip(
+                  label: const Text('Custom'),
+                  selected: _useCustomTime,
                   onSelected: (selected) {
-                    if (selected) {
-                      setState(() => _selectedTime = time);
-                    }
+                    setState(() {
+                      _useCustomTime = selected;
+                    });
                   },
-                );
-              }).toList(),
+                ),
+              ],
             ),
+            if (_useCustomTime) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _customTimeController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: 'Enter minutes',
+                  suffixText: 'mins',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                ),
+                onChanged: (value) {
+                  final time = int.tryParse(value);
+                  if (time != null && time > 0) {
+                    setState(() {
+                      _selectedTime = time;
+                    });
+                  }
+                },
+              ),
+            ],
             const SizedBox(height: 24),
             const Text(
               'Survey Tags (Select up to 3)',
