@@ -31,14 +31,14 @@ class _QuestionEditorState extends State<QuestionEditor> {
     super.initState();
     _questionController = TextEditingController(text: widget.question.text);
     
+    // Initialize rating from question's maxRating if exists
+    if (widget.question.type == QuestionType.rating && widget.question.maxRating != null) {
+      _maxRating = widget.question.maxRating!;
+    }
+    
     // Initialize option controllers
     for (var option in widget.question.options) {
       _optionsControllers.add(TextEditingController(text: option));
-    }
-    
-    // Initialize rating if exists
-    if (widget.question.type == QuestionType.rating) {
-      _maxRating = 5; // Default to 5 stars
     }
 
     // Add listener to validate on text change
@@ -92,6 +92,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
     String? text,
     bool? required,
     List<String>? options,
+    int? maxRating,
     String? imageUrl,
     String? videoUrl,
   }) {
@@ -100,6 +101,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
         text: text ?? _questionController.text,
         required: required,
         options: options ?? _optionsControllers.map((c) => c.text).toList(),
+        maxRating: maxRating ?? (widget.question.type == QuestionType.rating ? _maxRating : null),
         imageUrl: imageUrl,
         videoUrl: videoUrl,
       ),
@@ -506,7 +508,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
         const SizedBox(height: 8),
         Row(
           children: [
-            const Text('Max Stars:'),
+            const Text('Number of Stars:'),
             const SizedBox(width: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -529,6 +531,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
                   if (value != null) {
                     setState(() {
                       _maxRating = value;
+                      _updateQuestion();
                     });
                   }
                 },
@@ -539,10 +542,13 @@ class _QuestionEditorState extends State<QuestionEditor> {
         const SizedBox(height: 12),
         Row(
           children: List.generate(_maxRating, (index) {
-            return const Icon(
-              Icons.star,
-              color: Colors.amber,
-              size: 24,
+            return const Padding(
+              padding: EdgeInsets.only(right: 4),
+              child: Icon(
+                Icons.star,
+                color: Colors.amber,
+                size: 24,
+              ),
             );
           }),
         ),
@@ -662,11 +668,11 @@ class _QuestionEditorState extends State<QuestionEditor> {
                 // Options list for choice questions
                 if (_shouldShowOptions()) _buildOptionsList(),
                 
-                // Min/Max choice configuration for multiple choice
+                // Min/Max choice configuration for checkBox
                 if (widget.question.type == QuestionType.checkBox)
                   _buildMinMaxChoiceConfig(),
 
-                // Rating configuration
+                // Rating configuration (1-5 stars)
                 if (widget.question.type == QuestionType.rating)
                   _buildRatingConfig(),
 

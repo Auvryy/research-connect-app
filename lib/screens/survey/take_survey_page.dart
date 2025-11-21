@@ -678,8 +678,8 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   }
 
   Widget _buildRatingScale(String questionId, Map<String, dynamic> question, QuestionAnswer? currentAnswer) {
-    final options = _parseOptions(question['options']);
-    final maxRating = options.length;
+    // Get maxRating from question data, default to 5 if not specified
+    final maxRating = question['maxRating'] as int? ?? 5;
     
     return Column(
       children: [
@@ -720,7 +720,7 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
         const SizedBox(height: 8),
         if (currentAnswer?.ratingAnswer != null)
           Text(
-            '${currentAnswer!.ratingAnswer} / $maxRating',
+            '${currentAnswer!.ratingAnswer} / $maxRating stars',
             style: TextStyle(
               color: AppColors.secondary,
               fontSize: 14,

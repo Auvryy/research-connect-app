@@ -89,11 +89,12 @@ This document shows the exact JSON formats that the Flutter mobile app sends to 
     {
       "id": "question-1763633482019",
       "sectionId": "section-1763633422945",
-      "title": "Rate your overall experience (1-5)",
+      "title": "Rate your overall experience",
       "type": "rating",
       "order": 4,
       "required": true,
       "options": [],
+      "maxRating": 5,
       "imageUrl": "https://example.com/images/rating-icon.png",
       "videoUrl": null
     },
@@ -220,6 +221,7 @@ This document shows the exact JSON formats that the Flutter mobile app sends to 
   "options": [],
   "minChoice": null,
   "maxChoice": null,
+  "maxRating": null,
   "imageUrl": null,
   "videoUrl": null
 }
@@ -233,9 +235,10 @@ This document shows the exact JSON formats that the Flutter mobile app sends to 
 | **type** | String | Yes | Question type (see types below) |
 | **order** | Integer | Yes | Global question number (1, 2, 3...) |
 | **required** | Boolean | Yes | Is answer required? |
-| **options** | Array[String] | Conditional | For choice types only |
+| **options** | Array[String] | Conditional | For choice types only (not for rating) |
 | **minChoice** | Integer/null | Conditional | Min selections (checkBox only) |
 | **maxChoice** | Integer/null | Conditional | Max selections (checkBox only) |
+| **maxRating** | Integer/null | Conditional | Number of stars for rating (1-5, rating only) |
 | **imageUrl** | String/null | Optional | Image URL for question |
 | **videoUrl** | String/null | Optional | YouTube/video URL |
 
@@ -243,22 +246,27 @@ This document shows the exact JSON formats that the Flutter mobile app sends to 
 
 **Backend expects these exact type strings:**
 
-| Type Value | UI Element | Has Options? | Has minChoice/maxChoice? |
-|-----------|------------|--------------|---------------------------|
-| `"shortText"` | Short text input | No | No |
-| `"longText"` | Long text area | No | No |
-| `"email"` | Email input field | No | No |
-| `"date"` | Date picker | No | No |
-| `"rating"` | Star rating (1-5) | No | No |
-| `"radioButton"` | Radio buttons | Yes | No |
-| `"checkBox"` | Checkboxes | Yes | **Yes** (required) |
-| `"dropdown"` | Select dropdown | Yes | No |
+| Type Value | UI Element | Has Options? | Has minChoice/maxChoice? | Has maxRating? |
+|-----------|------------|--------------|---------------------------|----------------|
+| `"shortText"` | Short text input | No | No | No |
+| `"longText"` | Long text area | No | No | No |
+| `"email"` | Email input field | No | No | No |
+| `"date"` | Date picker | No | No | No |
+| `"rating"` | Star rating (1-5) | No | No | **Yes** (required) |
+| `"radioButton"` | Radio buttons | Yes | No | No |
+| `"checkBox"` | Checkboxes | Yes | **Yes** (required) | No |
+| `"dropdown"` | Select dropdown | Yes | No | No |
 
 **Important Notes:**
 - For `checkBox` type: `minChoice` and `maxChoice` are **required**
-- `minChoice` must be ≥ 1
-- `maxChoice` must be ≤ number of options
-- For all other types: `minChoice` and `maxChoice` should be `null`
+  - `minChoice` must be ≥ 1
+  - `maxChoice` must be ≤ number of options
+  - For all other types: `minChoice` and `maxChoice` should be `null`
+- For `rating` type: `maxRating` is **required** (1-5 stars)
+  - User chooses how many stars their rating question has (1, 2, 3, 4, or 5 stars)
+  - When answering, user selects one star from available stars
+  - Response is integer (1 to maxRating value)
+  - `rating` type does NOT use the `options` array
 
 ---
 
@@ -400,6 +408,7 @@ This document shows the exact JSON formats that the Flutter mobile app sends to 
       "options": [],
       "minChoice": null,
       "maxChoice": null,
+      "maxRating": 5,
       "imageUrl": null,
       "videoUrl": null
     },

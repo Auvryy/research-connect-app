@@ -71,6 +71,7 @@ class SurveyCreation {
         'options': q.options,
         'minChoice': q.minChoice,
         'maxChoice': q.maxChoice,
+        'maxRating': q.maxRating,
         'imageUrl': q.imageUrl,
         'videoUrl': q.videoUrl,
       }).toList(),
@@ -158,6 +159,7 @@ class SurveyQuestion {
   List<String> options;
   int? minChoice;
   int? maxChoice;
+  int? maxRating;
   String? imageUrl;
   String? videoUrl;
   int order;
@@ -171,6 +173,7 @@ class SurveyQuestion {
     List<String>? options,
     this.minChoice,
     this.maxChoice,
+    this.maxRating,
     this.imageUrl,
     this.videoUrl,
     required this.order,
@@ -186,6 +189,7 @@ class SurveyQuestion {
       'options': options,
       'minChoice': minChoice,
       'maxChoice': maxChoice,
+      'maxRating': maxRating,
       'imageUrl': imageUrl,
       'videoUrl': videoUrl,
       'order': order,
@@ -202,6 +206,7 @@ class SurveyQuestion {
       options: List<String>.from(json['options'] ?? []),
       minChoice: json['minChoice'] as int?,
       maxChoice: json['maxChoice'] as int?,
+      maxRating: json['maxRating'] as int?,
       imageUrl: json['imageUrl'] as String?,
       videoUrl: json['videoUrl'] as String?,
       order: json['order'] as int,
@@ -217,6 +222,7 @@ class SurveyQuestion {
     List<String>? options,
     int? minChoice,
     int? maxChoice,
+    int? maxRating,
     String? imageUrl,
     String? videoUrl,
     int? order,
@@ -230,6 +236,7 @@ class SurveyQuestion {
       options: options ?? this.options,
       minChoice: minChoice ?? this.minChoice,
       maxChoice: maxChoice ?? this.maxChoice,
+      maxRating: maxRating ?? this.maxRating,
       imageUrl: imageUrl ?? this.imageUrl,
       videoUrl: videoUrl ?? this.videoUrl,
       order: order ?? this.order,

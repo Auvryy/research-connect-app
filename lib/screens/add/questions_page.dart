@@ -74,6 +74,7 @@ class _QuestionsPageState extends State<QuestionsPage> {
                   : [],
               minChoice: type == QuestionType.checkBox ? 1 : null,
               maxChoice: type == QuestionType.checkBox ? 1 : null,
+              maxRating: type == QuestionType.rating ? 5 : null,
               order: _surveyData.questions.length,
               sectionId: section.id,
             );
