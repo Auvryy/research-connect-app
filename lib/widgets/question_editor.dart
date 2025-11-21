@@ -37,7 +37,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
     }
     
     // Initialize rating if exists
-    if (widget.question.type == QuestionType.ratingScale) {
+    if (widget.question.type == QuestionType.rating) {
       _maxRating = 5; // Default to 5 stars
     }
 
@@ -112,6 +112,18 @@ class _QuestionEditorState extends State<QuestionEditor> {
       // Add listener to validate choice text
       newController.addListener(() => _validateOptionText(newController));
       _optionsControllers.add(newController);
+      
+      // Update maxChoice for checkBox to match new options length
+      if (widget.question.type == QuestionType.checkBox) {
+        final newMaxOptions = _optionsControllers.length;
+        final currentMax = widget.question.maxChoice ?? newMaxOptions;
+        widget.onQuestionUpdated(
+          widget.question.copyWith(
+            maxChoice: currentMax > newMaxOptions ? newMaxOptions : currentMax,
+          ),
+        );
+      }
+      
       _updateQuestion();
     });
   }
@@ -150,6 +162,21 @@ class _QuestionEditorState extends State<QuestionEditor> {
     setState(() {
       _optionsControllers[index].dispose();
       _optionsControllers.removeAt(index);
+      
+      // Update minChoice/maxChoice for checkBox when options are removed
+      if (widget.question.type == QuestionType.checkBox) {
+        final newMaxOptions = _optionsControllers.length;
+        final currentMin = widget.question.minChoice ?? 1;
+        final currentMax = widget.question.maxChoice ?? newMaxOptions;
+        
+        widget.onQuestionUpdated(
+          widget.question.copyWith(
+            minChoice: currentMin > newMaxOptions ? newMaxOptions : currentMin,
+            maxChoice: currentMax > newMaxOptions ? newMaxOptions : currentMax,
+          ),
+        );
+      }
+      
       _updateQuestion();
     });
   }
@@ -275,9 +302,118 @@ class _QuestionEditorState extends State<QuestionEditor> {
   }
 
   bool _shouldShowOptions() {
-    return widget.question.type == QuestionType.multipleChoice ||
-        widget.question.type == QuestionType.checkbox ||
+    return widget.question.type == QuestionType.checkBox ||
+        widget.question.type == QuestionType.radioButton ||
         widget.question.type == QuestionType.dropdown;
+  }
+
+  Widget _buildMinMaxChoiceConfig() {
+    if (widget.question.type != QuestionType.checkBox) {
+      return const SizedBox.shrink();
+    }
+    
+    final maxOptions = widget.question.options.length;
+    final currentMin = widget.question.minChoice ?? 1;
+    final currentMax = widget.question.maxChoice ?? maxOptions;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Text(
+          'Selection Limits',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Min Choices', style: TextStyle(fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButton<int>(
+                      value: currentMin.clamp(1, maxOptions),
+                      underline: const SizedBox(),
+                      isExpanded: true,
+                      items: List.generate(maxOptions, (index) {
+                        final value = index + 1;
+                        return DropdownMenuItem<int>(
+                          value: value,
+                          child: Text('$value'),
+                        );
+                      }),
+                      onChanged: (value) {
+                        if (value != null) {
+                          widget.onQuestionUpdated(
+                            widget.question.copyWith(
+                              minChoice: value,
+                              maxChoice: currentMax < value ? value : currentMax,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Max Choices', style: TextStyle(fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButton<int>(
+                      value: currentMax.clamp(currentMin, maxOptions),
+                      underline: const SizedBox(),
+                      isExpanded: true,
+                      items: List.generate(maxOptions - currentMin + 1, (index) {
+                        final value = currentMin + index;
+                        return DropdownMenuItem<int>(
+                          value: value,
+                          child: Text('$value'),
+                        );
+                      }),
+                      onChanged: (value) {
+                        if (value != null) {
+                          widget.onQuestionUpdated(
+                            widget.question.copyWith(maxChoice: value),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Users must select between $currentMin and ${currentMax.clamp(currentMin, maxOptions)} options',
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+        ),
+      ],
+    );
   }
 
   Widget _buildOptionsList() {
@@ -302,9 +438,9 @@ class _QuestionEditorState extends State<QuestionEditor> {
             child: Row(
               children: [
                 Icon(
-                  widget.question.type == QuestionType.multipleChoice
+                  widget.question.type == QuestionType.radioButton
                       ? Icons.radio_button_unchecked
-                      : widget.question.type == QuestionType.checkbox
+                      : widget.question.type == QuestionType.checkBox
                           ? Icons.check_box_outline_blank
                           : Icons.arrow_drop_down,
                   size: 20,
@@ -525,14 +661,18 @@ class _QuestionEditorState extends State<QuestionEditor> {
 
                 // Options list for choice questions
                 if (_shouldShowOptions()) _buildOptionsList(),
+                
+                // Min/Max choice configuration for multiple choice
+                if (widget.question.type == QuestionType.checkBox)
+                  _buildMinMaxChoiceConfig(),
 
                 // Rating configuration
-                if (widget.question.type == QuestionType.ratingScale)
+                if (widget.question.type == QuestionType.rating)
                   _buildRatingConfig(),
 
                 // Text response placeholder
-                if (widget.question.type == QuestionType.textResponse ||
-                    widget.question.type == QuestionType.longTextResponse)
+                if (widget.question.type == QuestionType.shortText ||
+                    widget.question.type == QuestionType.longText)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: Container(
@@ -542,7 +682,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        widget.question.type == QuestionType.textResponse
+                        widget.question.type == QuestionType.shortText
                             ? 'Short text answer'
                             : 'Long text answer (paragraph)',
                         style: TextStyle(
@@ -645,20 +785,22 @@ class _QuestionEditorState extends State<QuestionEditor> {
 
   String _getTypeLabel() {
     switch (widget.question.type) {
-      case QuestionType.multipleChoice:
-        return 'MULTIPLE CHOICE';
-      case QuestionType.checkbox:
-        return 'CHECKBOX';
-      case QuestionType.textResponse:
+      case QuestionType.shortText:
         return 'SHORT TEXT';
-      case QuestionType.longTextResponse:
+      case QuestionType.longText:
         return 'LONG TEXT';
-      case QuestionType.ratingScale:
+      case QuestionType.radioButton:
+        return 'SINGLE CHOICE';
+      case QuestionType.checkBox:
+        return 'MULTIPLE CHOICE';
+      case QuestionType.rating:
         return 'RATING';
       case QuestionType.dropdown:
         return 'DROPDOWN';
-      case QuestionType.yesNo:
-        return 'YES/NO';
+      case QuestionType.date:
+        return 'DATE';
+      case QuestionType.email:
+        return 'EMAIL';
     }
   }
 }

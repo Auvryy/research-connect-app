@@ -123,16 +123,19 @@ class SurveyAPI {
   }
 
   /// Submit survey response
-  /// POST /api/survey/response/submit
-  static Future<Map<String, dynamic>> submitSurveyResponse(Map<String, dynamic> responseData) async {
+  /// POST /api/survey/answer/questionnaire/<survey_id>
+  static Future<Map<String, dynamic>> submitSurveyResponse(
+    int surveyId,
+    Map<String, dynamic> responseData,
+  ) async {
     try {
       final dio = await DioClient.instance;
       
-      print('SurveyAPI: Submitting survey response...');
+      print('SurveyAPI: Submitting survey response for survey ID: $surveyId');
       print('Response data: $responseData');
       
       final response = await dio.post(
-        '/../survey/response/submit',
+        '/../survey/answer/questionnaire/$surveyId',
         data: responseData,
       );
       
@@ -142,7 +145,7 @@ class SurveyAPI {
       if (response.statusCode == 200 && response.data['ok'] == true) {
         return {
           'ok': true,
-          'message': response.data['message'] ?? 'Response submitted successfully',
+          'message': response.data['message'] ?? 'You have successfully answered this survey',
           'data': response.data['data'],
         };
       }
@@ -156,9 +159,20 @@ class SurveyAPI {
       print('SurveyAPI: Response: ${e.response?.data}');
       
       if (e.response?.data is Map) {
+        final message = e.response?.data['message'] ?? 'Failed to submit response';
+        
+        // Check for specific error codes
+        if (e.response?.statusCode == 409) {
+          return {
+            'ok': false,
+            'message': message, // "You already answered this survey."
+            'alreadyAnswered': true,
+          };
+        }
+        
         return {
           'ok': false,
-          'message': e.response?.data['message'] ?? 'Failed to submit response',
+          'message': message,
         };
       }
       
@@ -168,6 +182,56 @@ class SurveyAPI {
       };
     } catch (e) {
       print('SurveyAPI: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  /// Check if user has already answered a survey
+  /// POST /api/survey/questionnaire/is_answered
+  static Future<Map<String, dynamic>> checkIfAnswered(int surveyId) async {
+    try {
+      final dio = await DioClient.instance;
+      
+      final response = await dio.post(
+        '/../survey/questionnaire/is_answered',
+        data: {'survey_id': surveyId},
+      );
+      
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        return {
+          'ok': true,
+          'alreadyAnswered': false,
+          'message': response.data['message'],
+        };
+      } else if (response.statusCode == 409) {
+        return {
+          'ok': true,
+          'alreadyAnswered': true,
+          'message': response.data['message'],
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to check survey status',
+      };
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 409) {
+        return {
+          'ok': true,
+          'alreadyAnswered': true,
+          'message': e.response?.data['message'] ?? 'You have already answered this survey',
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': e.response?.data['message'] ?? 'Network error',
+      };
+    } catch (e) {
       return {
         'ok': false,
         'message': e.toString(),

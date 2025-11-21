@@ -53,20 +53,22 @@ class SurveyReviewPage extends StatelessWidget {
 
   String _getQuestionTypeDisplay(QuestionType type) {
     switch (type) {
-      case QuestionType.multipleChoice:
-        return 'Multiple Choice';
-      case QuestionType.checkbox:
-        return 'Checkbox';
-      case QuestionType.textResponse:
+      case QuestionType.shortText:
         return 'Short Text';
-      case QuestionType.longTextResponse:
+      case QuestionType.longText:
         return 'Long Text';
-      case QuestionType.ratingScale:
-        return 'Rating (Stars)';
+      case QuestionType.radioButton:
+        return 'Single Choice';
+      case QuestionType.checkBox:
+        return 'Multiple Choice';
+      case QuestionType.rating:
+        return 'Rating (1-5)';
       case QuestionType.dropdown:
         return 'Dropdown';
-      case QuestionType.yesNo:
-        return 'Yes/No';
+      case QuestionType.date:
+        return 'Date';
+      case QuestionType.email:
+        return 'Email';
     }
   }
 

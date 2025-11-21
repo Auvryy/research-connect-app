@@ -5,7 +5,6 @@ import 'package:inquira/models/survey_creation.dart';
 import 'package:inquira/widgets/primary_button.dart';
 import 'package:inquira/widgets/question_editor.dart';
 import 'package:inquira/widgets/question_type_selector.dart';
-import 'package:uuid/uuid.dart';
 import 'package:inquira/data/draft_service.dart';
 
 class QuestionsPage extends StatefulWidget {
@@ -22,7 +21,6 @@ class QuestionsPage extends StatefulWidget {
 
 class _QuestionsPageState extends State<QuestionsPage> {
   late SurveyCreation _surveyData;
-  final _uuid = const Uuid();
   int? _expandedSection;
 
   @override
@@ -34,13 +32,23 @@ class _QuestionsPageState extends State<QuestionsPage> {
     if (_surveyData.sections.isEmpty) {
       _surveyData.sections.add(
         SurveySection(
-          id: _uuid.v4(),
+          id: 'section-${DateTime.now().millisecondsSinceEpoch}',
           title: 'Section 1',
           description: '',
-          order: 0,
+          order: 1,
         ),
       );
     }
+  }
+  
+  /// Generate section ID in backend format: section-{timestamp}
+  String _generateSectionId() {
+    return 'section-${DateTime.now().millisecondsSinceEpoch}';
+  }
+  
+  /// Generate question ID in backend format: question-{timestamp}
+  String _generateQuestionId() {
+    return 'question-${DateTime.now().millisecondsSinceEpoch}';
   }
 
   void _addQuestion(int sectionIndex) {
@@ -55,15 +63,17 @@ class _QuestionsPageState extends State<QuestionsPage> {
           onTypeSelected: (QuestionType type) {
             final section = _surveyData.sections[sectionIndex];
             final newQuestion = SurveyQuestion(
-              id: _uuid.v4(),
+              id: _generateQuestionId(),
               type: type,
               text: '',
               required: false,
-              options: (type == QuestionType.multipleChoice ||
-                      type == QuestionType.checkbox ||
+              options: (type == QuestionType.checkBox ||
+                      type == QuestionType.radioButton ||
                       type == QuestionType.dropdown)
                   ? ['Option 1']
                   : [],
+              minChoice: type == QuestionType.checkBox ? 1 : null,
+              maxChoice: type == QuestionType.checkBox ? 1 : null,
               order: _surveyData.questions.length,
               sectionId: section.id,
             );
@@ -104,12 +114,13 @@ class _QuestionsPageState extends State<QuestionsPage> {
 
   void _addSection() {
     setState(() {
+      final newOrder = _surveyData.sections.length + 1;
       _surveyData.sections.add(
         SurveySection(
-          id: _uuid.v4(),
-          title: 'Section ${_surveyData.sections.length + 1}',
+          id: _generateSectionId(),
+          title: 'Section $newOrder',
           description: '',
-          order: _surveyData.sections.length,
+          order: newOrder,
         ),
       );
     });
@@ -309,9 +320,9 @@ class _QuestionsPageState extends State<QuestionsPage> {
         return;
       }
 
-      // Validate choice-based questions have at least 2 options (exclude ratingScale)
-      final needsOptions = question.type == QuestionType.multipleChoice ||
-          question.type == QuestionType.checkbox ||
+      // Validate choice-based questions have at least 2 options
+      final needsOptions = question.type == QuestionType.checkBox ||
+          question.type == QuestionType.radioButton ||
           question.type == QuestionType.dropdown;
       
       if (needsOptions && question.options.length < 2) {
