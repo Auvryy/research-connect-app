@@ -7,43 +7,6 @@ import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/api/auth_api.dart';
 import 'package:inquira/data/user_info.dart';
 
-import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
-import 'package:dio/dio.dart';
-import 'package:cookie_jar/cookie_jar.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-
-final dio = Dio();
-final cookieJar = CookieJar();
-
-void setupDio() {
-  dio.interceptors.add(CookieManager(cookieJar));
-}
-
-Future<void> loginWithOAuth() async {
-  final url = "https://carlie-vile-workably.ngrok-free.dev/api/oauth/login?redirect_url=flutter";
-
-  // 1. Start OAuth login
-  final result = await FlutterWebAuth2.authenticate(
-    url: url,
-    callbackUrlScheme: "myapp",
-  );
-
-  // result will look like: myapp://oauth-callback?code=XYZ
-  final msg = Uri.parse(result).queryParameters["msg"];
-  final loginType = Uri.parse(result).queryParameters["login_type"];
-
-  print(msg);
-  print(loginType);
-
-  // // 2. Exchange code for token
-  // final response = await dio.post(
-  //   "http://localhost:5000/api/oauth/exchange",
-  //   data: {"code": code},
-  // );
-
-  // print("TOKEN: ${response.data}");
-}
-
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -158,17 +121,14 @@ class _LoginPageState extends State<LoginPage> {
                 ],
               ),
               const SizedBox(height: 10),
+              // Comment out the Google Sign In button
+              /*
               SecondaryButton(
-                text: "Sign in with Google",
-                iconPath: 'assets/images/google-icon.png',
-                onPressed: () async {
-                  try {
-                    await loginWithOAuth();
-                  } catch (e) {
-                    print("error loggin in with google $e");
-                  }
-                },
+                text: 'Sign in with Google',
+                onPressed: _isGoogleLoading ? null : _handleGoogleSignIn,
+                icon: 'assets/icons/google.svg',
               ),
+              */
               const SizedBox(height: 5),
               ToggleLoginRegister(
                 normalText: "Don't have an account?",
