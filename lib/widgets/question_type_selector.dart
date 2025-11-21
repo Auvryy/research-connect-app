@@ -52,39 +52,43 @@ class _QuestionTypeCard extends StatelessWidget {
 
   String get typeTitle {
     switch (type) {
-      case QuestionType.multipleChoice:
-        return 'Multiple Choice';
-      case QuestionType.checkbox:
-        return 'Checkbox';
-      case QuestionType.textResponse:
+      case QuestionType.shortText:
         return 'Short Text';
-      case QuestionType.longTextResponse:
+      case QuestionType.longText:
         return 'Long Text';
-      case QuestionType.ratingScale:
-        return 'Rating (Stars)';
+      case QuestionType.radioButton:
+        return 'Single Choice';
+      case QuestionType.checkBox:
+        return 'Multiple Choice';
+      case QuestionType.rating:
+        return 'Rating (1-5)';
       case QuestionType.dropdown:
         return 'Dropdown';
-      case QuestionType.yesNo:
-        return 'Yes/No';
+      case QuestionType.date:
+        return 'Date';
+      case QuestionType.email:
+        return 'Email';
     }
   }
 
   IconData get typeIcon {
     switch (type) {
-      case QuestionType.multipleChoice:
-        return Icons.radio_button_checked;
-      case QuestionType.checkbox:
-        return Icons.check_box;
-      case QuestionType.textResponse:
+      case QuestionType.shortText:
         return Icons.short_text;
-      case QuestionType.longTextResponse:
+      case QuestionType.longText:
         return Icons.text_fields;
-      case QuestionType.ratingScale:
+      case QuestionType.radioButton:
+        return Icons.radio_button_checked;
+      case QuestionType.checkBox:
+        return Icons.check_box;
+      case QuestionType.rating:
         return Icons.star;
       case QuestionType.dropdown:
         return Icons.arrow_drop_down_circle;
-      case QuestionType.yesNo:
-        return Icons.thumbs_up_down;
+      case QuestionType.date:
+        return Icons.calendar_today;
+      case QuestionType.email:
+        return Icons.email;
     }
   }
 

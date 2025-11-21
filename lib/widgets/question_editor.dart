@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/models/survey_creation.dart';
@@ -31,14 +32,50 @@ class _QuestionEditorState extends State<QuestionEditor> {
     super.initState();
     _questionController = TextEditingController(text: widget.question.text);
     
+    // Initialize rating from question's maxRating if exists
+    if (widget.question.type == QuestionType.rating && widget.question.maxRating != null) {
+      _maxRating = widget.question.maxRating!;
+    }
+    
     // Initialize option controllers
     for (var option in widget.question.options) {
       _optionsControllers.add(TextEditingController(text: option));
     }
+
+    // Add listener to validate on text change
+    _questionController.addListener(_validateQuestionText);
+  }
+
+  void _validateQuestionText() {
+    final text = _questionController.text.trim();
+    if (text.isEmpty) return;
+
+    final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     
-    // Initialize rating if exists
-    if (widget.question.type == QuestionType.ratingScale) {
-      _maxRating = 5; // Default to 5 stars
+    // Check word count (4-150 words)
+    if (words.length < 4) {
+      // Don't show error while typing
+      return;
+    }
+    if (words.length > 150) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Question must not exceed 150 words'),
+          backgroundColor: AppColors.error,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+    
+    // Check character count (max 2000)
+    if (text.length > 2000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Question must not exceed 2000 characters'),
+          backgroundColor: AppColors.error,
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
 
     // Add listener to validate on text change
@@ -92,6 +129,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
     String? text,
     bool? required,
     List<String>? options,
+    int? maxRating,
     String? imageUrl,
     String? videoUrl,
   }) {
@@ -100,6 +138,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
         text: text ?? _questionController.text,
         required: required,
         options: options ?? _optionsControllers.map((c) => c.text).toList(),
+        maxRating: maxRating ?? (widget.question.type == QuestionType.rating ? _maxRating : null),
         imageUrl: imageUrl,
         videoUrl: videoUrl,
       ),
@@ -112,6 +151,18 @@ class _QuestionEditorState extends State<QuestionEditor> {
       // Add listener to validate choice text
       newController.addListener(() => _validateOptionText(newController));
       _optionsControllers.add(newController);
+      
+      // Update maxChoice for checkBox to match new options length
+      if (widget.question.type == QuestionType.checkBox) {
+        final newMaxOptions = _optionsControllers.length;
+        final currentMax = widget.question.maxChoice ?? newMaxOptions;
+        widget.onQuestionUpdated(
+          widget.question.copyWith(
+            maxChoice: currentMax > newMaxOptions ? newMaxOptions : currentMax,
+          ),
+        );
+      }
+      
       _updateQuestion();
     });
   }
@@ -150,6 +201,21 @@ class _QuestionEditorState extends State<QuestionEditor> {
     setState(() {
       _optionsControllers[index].dispose();
       _optionsControllers.removeAt(index);
+      
+      // Update minChoice/maxChoice for checkBox when options are removed
+      if (widget.question.type == QuestionType.checkBox) {
+        final newMaxOptions = _optionsControllers.length;
+        final currentMin = widget.question.minChoice ?? 1;
+        final currentMax = widget.question.maxChoice ?? newMaxOptions;
+        
+        widget.onQuestionUpdated(
+          widget.question.copyWith(
+            minChoice: currentMin > newMaxOptions ? newMaxOptions : currentMin,
+            maxChoice: currentMax > newMaxOptions ? newMaxOptions : currentMax,
+          ),
+        );
+      }
+      
       _updateQuestion();
     });
   }
@@ -274,10 +340,246 @@ class _QuestionEditorState extends State<QuestionEditor> {
     _updateQuestion(imageUrl: '', videoUrl: '');
   }
 
+  Widget _buildImagePreview() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.image, size: 18, color: AppColors.accent1),
+              const SizedBox(width: 8),
+              const Text(
+                'Image Preview',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: _removeMedia,
+                tooltip: 'Remove image',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              File(widget.question.imageUrl!),
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image, size: 48, color: Colors.grey[400]),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Unable to load image',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoUrlDisplay() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.accent1.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.accent1.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.accent1.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.videocam,
+              color: AppColors.accent1,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Video URL',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.question.videoUrl!,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.accent1,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.close, size: 20),
+            onPressed: _removeMedia,
+            tooltip: 'Remove video',
+          ),
+        ],
+      ),
+    );
+  }
+
   bool _shouldShowOptions() {
-    return widget.question.type == QuestionType.multipleChoice ||
-        widget.question.type == QuestionType.checkbox ||
+    return widget.question.type == QuestionType.checkBox ||
+        widget.question.type == QuestionType.radioButton ||
         widget.question.type == QuestionType.dropdown;
+  }
+
+  Widget _buildMinMaxChoiceConfig() {
+    if (widget.question.type != QuestionType.checkBox) {
+      return const SizedBox.shrink();
+    }
+    
+    final maxOptions = widget.question.options.length;
+    final currentMin = widget.question.minChoice ?? 1;
+    final currentMax = widget.question.maxChoice ?? maxOptions;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Text(
+          'Selection Limits',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Min Choices', style: TextStyle(fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButton<int>(
+                      value: currentMin.clamp(1, maxOptions),
+                      underline: const SizedBox(),
+                      isExpanded: true,
+                      items: List.generate(maxOptions, (index) {
+                        final value = index + 1;
+                        return DropdownMenuItem<int>(
+                          value: value,
+                          child: Text('$value'),
+                        );
+                      }),
+                      onChanged: (value) {
+                        if (value != null) {
+                          widget.onQuestionUpdated(
+                            widget.question.copyWith(
+                              minChoice: value,
+                              maxChoice: currentMax < value ? value : currentMax,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Max Choices', style: TextStyle(fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButton<int>(
+                      value: currentMax.clamp(currentMin, maxOptions),
+                      underline: const SizedBox(),
+                      isExpanded: true,
+                      items: List.generate(maxOptions - currentMin + 1, (index) {
+                        final value = currentMin + index;
+                        return DropdownMenuItem<int>(
+                          value: value,
+                          child: Text('$value'),
+                        );
+                      }),
+                      onChanged: (value) {
+                        if (value != null) {
+                          widget.onQuestionUpdated(
+                            widget.question.copyWith(maxChoice: value),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Users must select between $currentMin and ${currentMax.clamp(currentMin, maxOptions)} options',
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+        ),
+      ],
+    );
   }
 
   Widget _buildOptionsList() {
@@ -302,9 +604,9 @@ class _QuestionEditorState extends State<QuestionEditor> {
             child: Row(
               children: [
                 Icon(
-                  widget.question.type == QuestionType.multipleChoice
+                  widget.question.type == QuestionType.radioButton
                       ? Icons.radio_button_unchecked
-                      : widget.question.type == QuestionType.checkbox
+                      : widget.question.type == QuestionType.checkBox
                           ? Icons.check_box_outline_blank
                           : Icons.arrow_drop_down,
                   size: 20,
@@ -370,7 +672,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
         const SizedBox(height: 8),
         Row(
           children: [
-            const Text('Max Stars:'),
+            const Text('Number of Stars:'),
             const SizedBox(width: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -393,6 +695,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
                   if (value != null) {
                     setState(() {
                       _maxRating = value;
+                      _updateQuestion();
                     });
                   }
                 },
@@ -403,10 +706,13 @@ class _QuestionEditorState extends State<QuestionEditor> {
         const SizedBox(height: 12),
         Row(
           children: List.generate(_maxRating, (index) {
-            return const Icon(
-              Icons.star,
-              color: Colors.amber,
-              size: 24,
+            return const Padding(
+              padding: EdgeInsets.only(right: 4),
+              child: Icon(
+                Icons.star,
+                color: Colors.amber,
+                size: 24,
+              ),
             );
           }),
         ),
@@ -439,22 +745,24 @@ class _QuestionEditorState extends State<QuestionEditor> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header with drag handle
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(10),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.drag_indicator,
-                  color: Colors.grey[400],
-                  size: 20,
+          // Header with drag handle (entire header is draggable)
+          MouseRegion(
+            cursor: SystemMouseCursors.grab,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(10),
                 ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.drag_indicator,
+                    color: Colors.grey[400],
+                    size: 20,
+                  ),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -482,6 +790,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
                   tooltip: 'Delete question',
                 ),
               ],
+              ),
             ),
           ),
 
@@ -525,14 +834,18 @@ class _QuestionEditorState extends State<QuestionEditor> {
 
                 // Options list for choice questions
                 if (_shouldShowOptions()) _buildOptionsList(),
+                
+                // Min/Max choice configuration for checkBox
+                if (widget.question.type == QuestionType.checkBox)
+                  _buildMinMaxChoiceConfig(),
 
-                // Rating configuration
-                if (widget.question.type == QuestionType.ratingScale)
+                // Rating configuration (1-5 stars)
+                if (widget.question.type == QuestionType.rating)
                   _buildRatingConfig(),
 
                 // Text response placeholder
-                if (widget.question.type == QuestionType.textResponse ||
-                    widget.question.type == QuestionType.longTextResponse)
+                if (widget.question.type == QuestionType.shortText ||
+                    widget.question.type == QuestionType.longText)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: Container(
@@ -542,7 +855,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        widget.question.type == QuestionType.textResponse
+                        widget.question.type == QuestionType.shortText
                             ? 'Short text answer'
                             : 'Long text answer (paragraph)',
                         style: TextStyle(
@@ -555,29 +868,12 @@ class _QuestionEditorState extends State<QuestionEditor> {
 
                 const SizedBox(height: 16),
 
-                // Media attachments
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (widget.question.imageUrl != null && widget.question.imageUrl!.isNotEmpty)
-                      Chip(
-                        avatar: const Icon(Icons.image, size: 16),
-                        label: const Text('Image attached'),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: _removeMedia,
-                        backgroundColor: AppColors.accent1.withOpacity(0.1),
-                      ),
-                    if (widget.question.videoUrl != null && widget.question.videoUrl!.isNotEmpty)
-                      Chip(
-                        avatar: const Icon(Icons.videocam, size: 16),
-                        label: const Text('Video URL added'),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: _removeMedia,
-                        backgroundColor: AppColors.accent1.withOpacity(0.1),
-                      ),
-                  ],
-                ),
+                // Media attachments with preview
+                if (widget.question.imageUrl != null && widget.question.imageUrl!.isNotEmpty)
+                  _buildImagePreview(),
+                
+                if (widget.question.videoUrl != null && widget.question.videoUrl!.isNotEmpty)
+                  _buildVideoUrlDisplay(),
 
                 const Divider(height: 24),
 
@@ -645,20 +941,22 @@ class _QuestionEditorState extends State<QuestionEditor> {
 
   String _getTypeLabel() {
     switch (widget.question.type) {
-      case QuestionType.multipleChoice:
-        return 'MULTIPLE CHOICE';
-      case QuestionType.checkbox:
-        return 'CHECKBOX';
-      case QuestionType.textResponse:
+      case QuestionType.shortText:
         return 'SHORT TEXT';
-      case QuestionType.longTextResponse:
+      case QuestionType.longText:
         return 'LONG TEXT';
-      case QuestionType.ratingScale:
+      case QuestionType.radioButton:
+        return 'SINGLE CHOICE';
+      case QuestionType.checkBox:
+        return 'MULTIPLE CHOICE';
+      case QuestionType.rating:
         return 'RATING';
       case QuestionType.dropdown:
         return 'DROPDOWN';
-      case QuestionType.yesNo:
-        return 'YES/NO';
+      case QuestionType.date:
+        return 'DATE';
+      case QuestionType.email:
+        return 'EMAIL';
     }
   }
 }

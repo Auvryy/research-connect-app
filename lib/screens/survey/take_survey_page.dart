@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/models/survey_response.dart';
@@ -68,10 +69,19 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
       final data = await SurveyAPI.getSurveyQuestionnaire(widget.postId);
       
       if (data['ok'] == true) {
-        _surveyInfo = data['survey'];
-        _allQuestions = data['questions'];
+        _surveyInfo = data['message'] ?? data['survey'];
         
-        // Group questions by section
+        // Backend returns nested structure: { message: { section: [{questions: [...]}] } }
+        final sections = _surveyInfo?['section'] as List<dynamic>? ?? [];
+        
+        // Flatten all questions from all sections for easy access
+        _allQuestions = [];
+        for (var section in sections) {
+          final questions = section['questions'] as List<dynamic>? ?? [];
+          _allQuestions!.addAll(questions);
+        }
+        
+        // Group questions by section using section_another_id
         _groupQuestionsBySection();
         
         setState(() {
@@ -93,29 +103,31 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   }
 
   void _groupQuestionsBySection() {
-    if (_allQuestions == null) return;
+    if (_surveyInfo == null) return;
     
     _sectionQuestions.clear();
     _sectionIds.clear();
     
-    for (var question in _allQuestions!) {
-      final sectionId = question['section_id']?.toString() ?? 'default';
-      
-      if (!_sectionQuestions.containsKey(sectionId)) {
-        _sectionQuestions[sectionId] = [];
-        _sectionIds.add(sectionId);
-      }
-      
-      _sectionQuestions[sectionId]!.add(question);
-    }
+    // Get sections from the nested structure
+    final sections = _surveyInfo?['section'] as List<dynamic>? ?? [];
     
-    // Sort questions within each section by question_number
-    for (var sectionId in _sectionIds) {
-      _sectionQuestions[sectionId]!.sort((a, b) {
-        final aNum = a['question_number'] ?? 0;
-        final bNum = b['question_number'] ?? 0;
-        return aNum.compareTo(bNum);
-      });
+    for (var section in sections) {
+      // Use section_another_id (e.g., "section-demographics") as the key
+      final sectionAnotherId = section['section_another_id']?.toString() ?? 
+                               section['another_id']?.toString() ?? 'default';
+      final questions = section['questions'] as List<dynamic>? ?? [];
+      
+      if (questions.isNotEmpty) {
+        _sectionIds.add(sectionAnotherId);
+        _sectionQuestions[sectionAnotherId] = questions;
+        
+        // Sort questions within section by q_number
+        _sectionQuestions[sectionAnotherId]!.sort((a, b) {
+          final aNum = a['q_number'] ?? 0;
+          final bNum = b['q_number'] ?? 0;
+          return aNum.compareTo(bNum);
+        });
+      }
     }
     
     print('Grouped into ${_sectionIds.length} sections');
@@ -150,10 +162,12 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     final questions = _sectionQuestions[currentSectionId] ?? [];
     
     for (var question in questions) {
-      final isRequired = question['is_required'] == true || question['is_required'] == 1;
-      final questionId = question['id']?.toString() ?? '';
+      final isRequired = question['required'] == true || question['required'] == 1;
+      // Use question_another_id as the unique identifier
+      final questionAnotherId = question['question_another_id']?.toString() ?? 
+                                question['another_id']?.toString() ?? '';
       
-      if (isRequired && !_response.hasAnswer(questionId)) {
+      if (isRequired && !_response.hasAnswer(questionAnotherId)) {
         return false;
       }
     }
@@ -198,8 +212,30 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     try {
       _response.complete();
       
-      // Submit to backend
-      final result = await SurveyAPI.submitSurveyResponse(_response.toBackendJson());
+      // Get survey info for submission
+      final surveyTitle = _surveyInfo?['title'] as String?;
+      final surveyDescription = _surveyInfo?['content'] as String?;
+      final sections = _surveyInfo?['section'] as List<dynamic>? ?? [];
+      
+      // Format response data for backend with proper section_another_id grouping
+      // Backend expects: { "surveyTitle": "...", "responses": { "section-id": { "question-id": answer } } }
+      final submissionData = _response.toSubmissionJson(
+        surveyTitle: surveyTitle,
+        surveyDescription: surveyDescription,
+        sections: sections.cast<Map<String, dynamic>>(), // Pass sections for proper grouping
+      );
+      
+      print('Submitting survey response:');
+      print('Survey ID: ${_surveyInfo?['id']}');
+      print('Submission data: $submissionData');
+      
+      // Submit to backend using survey ID from survey info
+      final surveyId = _surveyInfo?['id'] as int?;
+      if (surveyId == null) {
+        throw Exception('Survey ID not found');
+      }
+      
+      final result = await SurveyAPI.submitSurveyResponse(surveyId, submissionData);
       
       if (!mounted) return;
       
@@ -212,20 +248,36 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
           const SnackBar(
             content: Text('Survey submitted successfully! 🎉'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
           ),
         );
         
-        Navigator.pop(context);
+        // Navigate back to home or feed
+        Navigator.pop(context, true);
       } else {
-        // Show error
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Failed to submit survey'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        // Check if already answered
+        if (result['alreadyAnswered'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'You have already answered this survey'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          Navigator.pop(context);
+        } else {
+          // Show error
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Failed to submit survey'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       }
     } catch (e) {
+      print('Error submitting survey: $e');
       if (!mounted) return;
       
       Navigator.pop(context); // Close loading
@@ -425,10 +477,12 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   }
 
   Widget _buildQuestionCard(Map<String, dynamic> question) {
-    final questionId = question['id']?.toString() ?? '';
+    // Use question_another_id as the unique identifier for database relationships
+    final questionId = question['question_another_id']?.toString() ?? 
+                       question['another_id']?.toString() ?? '';
     final questionText = question['question_text'] ?? '';
-    final isRequired = question['is_required'] == true || question['is_required'] == 1;
-    final questionType = _parseQuestionType(question['question_type']);
+    final isRequired = question['required'] == true || question['required'] == 1;
+    final questionType = _parseQuestionType(question['q_type']);
     
     return Card(
       elevation: 2,
@@ -465,6 +519,78 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
               ],
             ),
             
+            // Image preview if exists
+            if (question['imageUrl'] != null && question['imageUrl'].toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(question['imageUrl'].toString()),
+                    width: double.infinity,
+                    height: 200,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 200,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.broken_image, size: 48, color: Colors.grey[400]),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Unable to load image',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            
+            // Video URL display if exists
+            if (question['videoUrl'] != null && question['videoUrl'].toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent1.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.accent1.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.videocam,
+                        color: AppColors.accent1,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          question['videoUrl'].toString(),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.accent1,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            
             const SizedBox(height: 16),
             
             // Question input based on type
@@ -479,26 +605,29 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     final currentAnswer = _response.getAnswer(questionId);
     
     switch (type) {
-      case QuestionType.textResponse:
+      case QuestionType.shortText:
         return _buildTextInput(questionId, false);
       
-      case QuestionType.longTextResponse:
+      case QuestionType.longText:
         return _buildTextInput(questionId, true);
       
-      case QuestionType.multipleChoice:
+      case QuestionType.radioButton:
         return _buildMultipleChoice(questionId, question, currentAnswer);
       
-      case QuestionType.checkbox:
+      case QuestionType.checkBox:
         return _buildCheckboxes(questionId, question, currentAnswer);
       
       case QuestionType.dropdown:
         return _buildDropdown(questionId, question, currentAnswer);
       
-      case QuestionType.yesNo:
-        return _buildYesNo(questionId, currentAnswer);
-      
-      case QuestionType.ratingScale:
+      case QuestionType.rating:
         return _buildRatingScale(questionId, question, currentAnswer);
+      
+      case QuestionType.email:
+        return _buildTextInput(questionId, false);
+      
+      case QuestionType.date:
+        return _buildTextInput(questionId, false);
     }
   }
 
@@ -534,20 +663,20 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   }
 
   Widget _buildMultipleChoice(String questionId, Map<String, dynamic> question, QuestionAnswer? currentAnswer) {
-    final options = _parseOptions(question['options']);
+    final options = _parseOptions(question['choices'] ?? question['options']);
     
     return Column(
       children: options.map((option) {
         return RadioListTile<String>(
           title: Text(option),
           value: option,
-          groupValue: currentAnswer?.singleChoiceAnswer,
+          groupValue: currentAnswer?.radioButtonAnswer,
           activeColor: AppColors.primary,
           onChanged: (value) {
             setState(() {
               _response.setAnswer(
                 questionId,
-                QuestionAnswer.singleChoice(QuestionType.multipleChoice, value!),
+                QuestionAnswer.radioButton(QuestionType.checkBox, value!),
               );
             });
           },
@@ -557,8 +686,8 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   }
 
   Widget _buildCheckboxes(String questionId, Map<String, dynamic> question, QuestionAnswer? currentAnswer) {
-    final options = _parseOptions(question['options']);
-    final selectedOptions = currentAnswer?.multipleChoiceAnswers ?? [];
+    final options = _parseOptions(question['choices'] ?? question['options']);
+    final selectedOptions = currentAnswer?.checkBoxAnswers ?? [];
     
     return Column(
       children: options.map((option) {
@@ -578,7 +707,7 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
               }
               _response.setAnswer(
                 questionId,
-                QuestionAnswer.multipleChoice(newSelected),
+                QuestionAnswer.checkBox(newSelected),
               );
             });
           },
@@ -588,10 +717,10 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   }
 
   Widget _buildDropdown(String questionId, Map<String, dynamic> question, QuestionAnswer? currentAnswer) {
-    final options = _parseOptions(question['options']);
+    final options = _parseOptions(question['choices'] ?? question['options']);
     
     return DropdownButtonFormField<String>(
-      value: currentAnswer?.singleChoiceAnswer,
+      value: currentAnswer?.radioButtonAnswer,
       decoration: InputDecoration(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -613,7 +742,7 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
           setState(() {
             _response.setAnswer(
               questionId,
-              QuestionAnswer.singleChoice(QuestionType.dropdown, value),
+              QuestionAnswer.radioButton(QuestionType.dropdown, value),
             );
           });
         }
@@ -621,77 +750,9 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     );
   }
 
-  Widget _buildYesNo(String questionId, QuestionAnswer? currentAnswer) {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () {
-              setState(() {
-                _response.setAnswer(questionId, QuestionAnswer.yesNo(true));
-              });
-            },
-            style: OutlinedButton.styleFrom(
-              backgroundColor: currentAnswer?.singleChoiceAnswer == 'Yes'
-                  ? AppColors.primary.withOpacity(0.1)
-                  : Colors.white,
-              side: BorderSide(
-                color: currentAnswer?.singleChoiceAnswer == 'Yes'
-                    ? AppColors.primary
-                    : AppColors.border,
-                width: 2,
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: Text(
-              'Yes',
-              style: TextStyle(
-                color: currentAnswer?.singleChoiceAnswer == 'Yes'
-                    ? AppColors.primary
-                    : AppColors.secondary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () {
-              setState(() {
-                _response.setAnswer(questionId, QuestionAnswer.yesNo(false));
-              });
-            },
-            style: OutlinedButton.styleFrom(
-              backgroundColor: currentAnswer?.singleChoiceAnswer == 'No'
-                  ? AppColors.primary.withOpacity(0.1)
-                  : Colors.white,
-              side: BorderSide(
-                color: currentAnswer?.singleChoiceAnswer == 'No'
-                    ? AppColors.primary
-                    : AppColors.border,
-                width: 2,
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: Text(
-              'No',
-              style: TextStyle(
-                color: currentAnswer?.singleChoiceAnswer == 'No'
-                    ? AppColors.primary
-                    : AppColors.secondary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildRatingScale(String questionId, Map<String, dynamic> question, QuestionAnswer? currentAnswer) {
-    final options = _parseOptions(question['options']);
-    final maxRating = options.length;
+    // Get maxRating from question data, default to 5 if not specified
+    final maxRating = question['maxRating'] as int? ?? 5;
     
     return Column(
       children: [
@@ -732,7 +793,7 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
         const SizedBox(height: 8),
         if (currentAnswer?.ratingAnswer != null)
           Text(
-            '${currentAnswer!.ratingAnswer} / $maxRating',
+            '${currentAnswer!.ratingAnswer} / $maxRating stars',
             style: TextStyle(
               color: AppColors.secondary,
               fontSize: 14,
@@ -803,30 +864,48 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   // Helper methods
   QuestionType _parseQuestionType(String? type) {
     switch (type?.toLowerCase()) {
+      case 'radiobutton':
+      case 'radio_button':
+      case 'radio button':
+      case 'singlechoice':
+      case 'single_choice':
+      case 'single choice':
+        return QuestionType.radioButton;
+      case 'checkbox':
+      case 'check_box':
+      case 'check box':
+      case 'checkboxes':
       case 'multiplechoice':
       case 'multiple_choice':
-        return QuestionType.multipleChoice;
-      case 'checkbox':
-        return QuestionType.checkbox;
+      case 'multiple choice':
+        return QuestionType.checkBox;
       case 'dropdown':
         return QuestionType.dropdown;
+      case 'shorttext':
+      case 'short_text':
+      case 'short text':
       case 'textresponse':
       case 'text_response':
       case 'text':
-        return QuestionType.textResponse;
+        return QuestionType.shortText;
+      case 'longtext':
+      case 'long_text':
+      case 'long text':
       case 'longtextresponse':
       case 'long_text_response':
-      case 'longtext':
-        return QuestionType.longTextResponse;
+      case 'essay':
+        return QuestionType.longText;
+      case 'rating':
       case 'ratingscale':
       case 'rating_scale':
-      case 'rating':
-        return QuestionType.ratingScale;
-      case 'yesno':
-      case 'yes_no':
-        return QuestionType.yesNo;
+      case 'rating scale':
+        return QuestionType.rating;
+      case 'date':
+        return QuestionType.date;
+      case 'email':
+        return QuestionType.email;
       default:
-        return QuestionType.textResponse;
+        return QuestionType.shortText;
     }
   }
 

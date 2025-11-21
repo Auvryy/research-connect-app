@@ -78,7 +78,7 @@ class Question {
   final String text;
   final QuestionType type;
   final bool required;
-  final List<String>? options; // only used for multipleChoice/checkbox/dropdown
+  final List<String>? options; // only used for checkBox/checkbox/dropdown
 
   Question({
     required this.questionId,

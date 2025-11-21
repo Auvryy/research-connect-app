@@ -1,11 +1,12 @@
 enum QuestionType {
-  multipleChoice,
-  checkbox,
+  shortText,
+  longText,
+  radioButton,
+  checkBox,
+  rating,
   dropdown,
-  textResponse,
-  longTextResponse,
-  ratingScale,
-  yesNo,
+  date,
+  email,
 }
 
 extension QuestionTypeExtension on QuestionType {
@@ -18,43 +19,65 @@ extension QuestionTypeExtension on QuestionType {
     );
   }
 
-  /// Convert to backend string format (camelCase)
+  /// Convert to backend string format matching Q_TYPE_WEB
+  /// Backend expects: ("shortText", "longText", "radioButton", "checkBox", "rating", "dropdown", "date", "email")
   String toBackendString() {
     switch (this) {
-      case QuestionType.multipleChoice:
-        return 'multipleChoice';
-      case QuestionType.checkbox:
-        return 'checkbox';
+      case QuestionType.shortText:
+        return 'shortText';
+      case QuestionType.longText:
+        return 'longText';
+      case QuestionType.radioButton:
+        return 'radioButton';
+      case QuestionType.checkBox:
+        return 'checkBox';
+      case QuestionType.rating:
+        return 'rating';
       case QuestionType.dropdown:
         return 'dropdown';
-      case QuestionType.textResponse:
-        return 'textResponse';
-      case QuestionType.longTextResponse:
-        return 'longTextResponse';
-      case QuestionType.ratingScale:
-        return 'ratingScale';
-      case QuestionType.yesNo:
-        return 'yesNo';
+      case QuestionType.date:
+        return 'date';
+      case QuestionType.email:
+        return 'email';
     }
   }
 
   /// Display name for UI
   String displayName() {
     switch (this) {
-      case QuestionType.multipleChoice:
-        return 'Multiple Choice';
-      case QuestionType.checkbox:
-        return 'Checkboxes';
+      case QuestionType.shortText:
+        return 'Short Text';
+      case QuestionType.longText:
+        return 'Long Text (Essay)';
+      case QuestionType.radioButton:
+        return 'Radio Button (Single Choice)';
+      case QuestionType.checkBox:
+        return 'Checkbox (Multiple Choice)';
+      case QuestionType.rating:
+        return 'Rating Scale (1-5)';
       case QuestionType.dropdown:
         return 'Dropdown';
-      case QuestionType.textResponse:
-        return 'Short Text';
-      case QuestionType.longTextResponse:
-        return 'Long Text (Paragraph)';
-      case QuestionType.ratingScale:
-        return 'Rating Scale';
-      case QuestionType.yesNo:
-        return 'Yes/No';
+      case QuestionType.date:
+        return 'Date Picker';
+      case QuestionType.email:
+        return 'Email Address';
     }
+  }
+  
+  /// Check if question type requires options
+  bool requiresOptions() {
+    switch (this) {
+      case QuestionType.radioButton:
+      case QuestionType.checkBox:
+      case QuestionType.dropdown:
+        return true;
+      default:
+        return false;
+    }
+  }
+  
+  /// Check if question type requires minChoice/maxChoice
+  bool requiresMinMaxChoice() {
+    return this == QuestionType.checkBox;
   }
 }

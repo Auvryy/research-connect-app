@@ -46,37 +46,35 @@ class SurveyCreation {
 
   /// Convert to backend format for mobile endpoint
   /// POST /api/survey/post/send/questionnaire/mobile
-  /// Returns JSON in camelCase format
+  /// Returns JSON in camelCase format matching FLUTTER_SURVEY_JSON_FORMAT.md
   Map<String, dynamic> toBackendJson() {
-    // Convert sections list to map with section ID as key
-    final sectionsMap = <String, Map<String, dynamic>>{};
-    for (var section in sections) {
-      sectionsMap[section.id] = {
-        'title': section.title,
-        'description': section.description,
-        'order': section.order,
-      };
-    }
-
     return {
       'caption': caption.isEmpty ? title : caption,
       'title': title,
       'description': description.isEmpty ? caption : description,
-      'timeToComplete': timeToComplete.toString(),
+      'timeToComplete': '$timeToComplete-${timeToComplete + 5} min',
       'tags': tags,
       'targetAudience': targetAudience,
+      'sections': sections.map((s) => {
+        'id': s.id,
+        'title': s.title,
+        'description': s.description,
+        'order': s.order,
+      }).toList(),
       'data': questions.map((q) => {
-        'questionId': q.id,
+        'id': q.id,
+        'sectionId': q.sectionId.isEmpty ? 'default' : q.sectionId,
         'title': q.text,
         'type': q.type.toBackendString(),
-        'required': q.required,
         'order': q.order,
-        'sectionId': q.sectionId.isEmpty ? 'default' : q.sectionId,
+        'required': q.required,
         'options': q.options,
+        'minChoice': q.minChoice,
+        'maxChoice': q.maxChoice,
+        'maxRating': q.maxRating,
         'imageUrl': q.imageUrl,
         'videoUrl': q.videoUrl,
       }).toList(),
-      'sections': sectionsMap,
     };
   }
 
@@ -159,6 +157,9 @@ class SurveyQuestion {
   QuestionType type;
   bool required;
   List<String> options;
+  int? minChoice;
+  int? maxChoice;
+  int? maxRating;
   String? imageUrl;
   String? videoUrl;
   int order;
@@ -170,6 +171,9 @@ class SurveyQuestion {
     required this.type,
     this.required = false,
     List<String>? options,
+    this.minChoice,
+    this.maxChoice,
+    this.maxRating,
     this.imageUrl,
     this.videoUrl,
     required this.order,
@@ -183,6 +187,9 @@ class SurveyQuestion {
       'type': type.toJson(),
       'required': required,
       'options': options,
+      'minChoice': minChoice,
+      'maxChoice': maxChoice,
+      'maxRating': maxRating,
       'imageUrl': imageUrl,
       'videoUrl': videoUrl,
       'order': order,
@@ -197,6 +204,9 @@ class SurveyQuestion {
       type: QuestionTypeExtension.fromJson(json['type'] as String),
       required: json['required'] as bool,
       options: List<String>.from(json['options'] ?? []),
+      minChoice: json['minChoice'] as int?,
+      maxChoice: json['maxChoice'] as int?,
+      maxRating: json['maxRating'] as int?,
       imageUrl: json['imageUrl'] as String?,
       videoUrl: json['videoUrl'] as String?,
       order: json['order'] as int,
@@ -210,6 +220,9 @@ class SurveyQuestion {
     QuestionType? type,
     bool? required,
     List<String>? options,
+    int? minChoice,
+    int? maxChoice,
+    int? maxRating,
     String? imageUrl,
     String? videoUrl,
     int? order,
@@ -221,6 +234,9 @@ class SurveyQuestion {
       type: type ?? this.type,
       required: required ?? this.required,
       options: options ?? this.options,
+      minChoice: minChoice ?? this.minChoice,
+      maxChoice: maxChoice ?? this.maxChoice,
+      maxRating: maxRating ?? this.maxRating,
       imageUrl: imageUrl ?? this.imageUrl,
       videoUrl: videoUrl ?? this.videoUrl,
       order: order ?? this.order,

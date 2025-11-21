@@ -7,6 +7,7 @@ import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/api/auth_api.dart';
 import 'package:inquira/data/user_info.dart';
 
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -120,13 +121,14 @@ class _LoginPageState extends State<LoginPage> {
                 ],
               ),
               const SizedBox(height: 10),
+              // Comment out the Google Sign In button
+              /*
               SecondaryButton(
-                text: "Sign in with Google",
-                iconPath: 'assets/images/google-icon.png',
-                onPressed: () {
-                  print('Google clicked');
-                },
+                text: 'Sign in with Google',
+                onPressed: _isGoogleLoading ? null : _handleGoogleSignIn,
+                icon: 'assets/icons/google.svg',
               ),
+              */
               const SizedBox(height: 5),
               ToggleLoginRegister(
                 normalText: "Don't have an account?",
