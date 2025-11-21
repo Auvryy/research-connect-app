@@ -48,6 +48,7 @@ class _TargetAudiencePageState extends State<TargetAudiencePage> {
   final TextEditingController _customAudienceController = TextEditingController();
   bool _showOthersInput = false;
   final List<String> _customAudiences = [];
+  static const int _maxAudiences = 5;
 
   @override
   void initState() {
@@ -140,6 +141,16 @@ class _TargetAudiencePageState extends State<TargetAudiencePage> {
                     if (isSelected) {
                       _selectedAudiences.remove(audience);
                     } else {
+                      if (_selectedAudiences.length >= _maxAudiences) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Maximum $_maxAudiences audiences allowed'),
+                            backgroundColor: AppColors.error,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                        return;
+                      }
                       _selectedAudiences.add(audience);
                     }
                   });
@@ -231,7 +242,31 @@ class _TargetAudiencePageState extends State<TargetAudiencePage> {
                         icon: const Icon(Icons.add_circle, color: AppColors.primary),
                         onPressed: () {
                           final custom = _customAudienceController.text.trim();
-                          if (custom.isNotEmpty && !_customAudiences.contains(custom)) {
+                          if (custom.isEmpty) return;
+                          
+                          if (custom.length > 50) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Audience name must be 50 characters or less'),
+                                backgroundColor: AppColors.error,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                            return;
+                          }
+                          
+                          if (_selectedAudiences.length >= _maxAudiences) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Maximum $_maxAudiences audiences allowed'),
+                                backgroundColor: AppColors.error,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                            return;
+                          }
+                          
+                          if (!_customAudiences.contains(custom)) {
                             setState(() {
                               _customAudiences.add(custom);
                               _selectedAudiences.add(custom);

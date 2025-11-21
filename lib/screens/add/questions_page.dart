@@ -160,47 +160,7 @@ class _QuestionsPageState extends State<QuestionsPage> {
     });
   }
 
-  void _moveSectionUp(int index) {
-    if (index > 0) {
-      setState(() {
-        final section = _surveyData.sections.removeAt(index);
-        _surveyData.sections.insert(index - 1, section);
-        
-        // Update orders
-        for (var i = 0; i < _surveyData.sections.length; i++) {
-          _surveyData.sections[i] = _surveyData.sections[i].copyWith(order: i);
-        }
-        
-        // Update expanded section index
-        if (_expandedSection == index) {
-          _expandedSection = index - 1;
-        } else if (_expandedSection == index - 1) {
-          _expandedSection = index;
-        }
-      });
-    }
-  }
 
-  void _moveSectionDown(int index) {
-    if (index < _surveyData.sections.length - 1) {
-      setState(() {
-        final section = _surveyData.sections.removeAt(index);
-        _surveyData.sections.insert(index + 1, section);
-        
-        // Update orders
-        for (var i = 0; i < _surveyData.sections.length; i++) {
-          _surveyData.sections[i] = _surveyData.sections[i].copyWith(order: i);
-        }
-        
-        // Update expanded section index
-        if (_expandedSection == index) {
-          _expandedSection = index + 1;
-        } else if (_expandedSection == index + 1) {
-          _expandedSection = index;
-        }
-      });
-    }
-  }
 
   void _reorderQuestions(String sectionId, int oldIndex, int newIndex) {
     setState(() {
@@ -410,9 +370,38 @@ class _QuestionsPageState extends State<QuestionsPage> {
           ),
         ],
       ),
-      body: ListView.builder(
+      body: ReorderableListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: _surveyData.sections.length,
+        buildDefaultDragHandles: false,
+        onReorder: (oldIndex, newIndex) async {
+          setState(() {
+            if (oldIndex < newIndex) {
+              newIndex -= 1;
+            }
+            final section = _surveyData.sections.removeAt(oldIndex);
+            _surveyData.sections.insert(newIndex, section);
+            
+            // Update orders for all sections
+            for (var i = 0; i < _surveyData.sections.length; i++) {
+              _surveyData.sections[i] = _surveyData.sections[i].copyWith(order: i + 1);
+            }
+            
+            // Update expanded section index
+            if (_expandedSection == oldIndex) {
+              _expandedSection = newIndex;
+            } else if (_expandedSection != null) {
+              if (oldIndex < _expandedSection! && newIndex >= _expandedSection!) {
+                _expandedSection = _expandedSection! - 1;
+              } else if (oldIndex > _expandedSection! && newIndex <= _expandedSection!) {
+                _expandedSection = _expandedSection! + 1;
+              }
+            }
+          });
+          
+          // Auto-save draft after reordering
+          await DraftService.saveDraft(_surveyData);
+        },
         itemBuilder: (context, index) {
           final section = _surveyData.sections[index];
           final sectionQuestions = _getQuestionsForSection(section.id);
@@ -420,48 +409,43 @@ class _QuestionsPageState extends State<QuestionsPage> {
 
           return Card(
             key: ValueKey(section.id),
-            margin: const EdgeInsets.only(bottom: 16),
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: AppColors.primary.withOpacity(0.2)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Section Header
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.05),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(12),
-                    ),
-                  ),
-                  child: ListTile(
-                    leading: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (index > 0)
-                          InkWell(
-                            onTap: () => _moveSectionUp(index),
-                            child: const Icon(
-                              Icons.arrow_upward,
-                              color: AppColors.primary,
-                              size: 16,
-                            ),
-                          ),
-                        if (index < _surveyData.sections.length - 1)
-                          InkWell(
-                            onTap: () => _moveSectionDown(index),
-                            child: const Icon(
-                              Icons.arrow_downward,
-                              color: AppColors.primary,
-                              size: 16,
-                            ),
-                          ),
-                      ],
-                    ),
-                    title: Column(
+              margin: const EdgeInsets.only(bottom: 16),
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: AppColors.primary.withOpacity(0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Section Header
+                  ReorderableDelayedDragStartListener(
+                    index: index,
+                    enabled: !isExpanded,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.05),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(12),
+                        ),
+                      ),
+                      child: MouseRegion(
+                        cursor: isExpanded ? SystemMouseCursors.basic : SystemMouseCursors.grab,
+                        child: ListTile(
+                          leading: isExpanded 
+                            ? SizedBox(
+                                width: 24,
+                                child: Icon(
+                                  Icons.folder_open,
+                                  color: AppColors.secondary,
+                                  size: 24,
+                                ),
+                              )
+                            : Icon(
+                                Icons.drag_indicator,
+                                color: AppColors.secondary,
+                              ),
+                      title: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         TextField(
@@ -566,8 +550,10 @@ class _QuestionsPageState extends State<QuestionsPage> {
                           ),
                       ],
                     ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
 
                 // Section Questions
                 if (isExpanded) ...[
@@ -618,17 +604,21 @@ class _QuestionsPageState extends State<QuestionsPage> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       padding: const EdgeInsets.all(12),
+                      buildDefaultDragHandles: false,
                       itemCount: sectionQuestions.length,
                       onReorder: (oldIdx, newIdx) {
                         _reorderQuestions(section.id, oldIdx, newIdx);
                       },
                       itemBuilder: (context, qIndex) {
                         final question = sectionQuestions[qIndex];
-                        return QuestionEditor(
+                        return ReorderableDelayedDragStartListener(
                           key: ValueKey(question.id),
-                          question: question,
-                          onQuestionUpdated: _updateQuestion,
-                          onDelete: () => _deleteQuestion(question.id),
+                          index: qIndex,
+                          child: QuestionEditor(
+                            question: question,
+                            onQuestionUpdated: _updateQuestion,
+                            onDelete: () => _deleteQuestion(question.id),
+                          ),
                         );
                       },
                     ),

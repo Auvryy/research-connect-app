@@ -709,22 +709,24 @@ class _QuestionEditorState extends State<QuestionEditor> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header with drag handle
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(10),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.drag_indicator,
-                  color: Colors.grey[400],
-                  size: 20,
+          // Header with drag handle (entire header is draggable)
+          MouseRegion(
+            cursor: SystemMouseCursors.grab,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(10),
                 ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.drag_indicator,
+                    color: Colors.grey[400],
+                    size: 20,
+                  ),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -752,6 +754,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
                   tooltip: 'Delete question',
                 ),
               ],
+              ),
             ),
           ),
 
