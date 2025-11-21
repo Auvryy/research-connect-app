@@ -40,7 +40,7 @@ class DioClient {
 
       final dio = Dio(
         BaseOptions(
-          baseUrl: 'http://10.0.2.2:5000/api/user',
+          baseUrl: 'https://carlie-vile-workably.ngrok-free.dev/api/user',
           connectTimeout: const Duration(seconds: 30),
           receiveTimeout: const Duration(seconds: 30),
           headers: {
@@ -119,7 +119,7 @@ class DioClient {
 
       final dioOtp = Dio(
         BaseOptions(
-          baseUrl: 'http://10.0.2.2:5000/api/otp',
+          baseUrl: 'https://carlie-vile-workably.ngrok-free.dev/api/otp',
           connectTimeout: const Duration(seconds: 30),
           receiveTimeout: const Duration(seconds: 30),
           headers: {
