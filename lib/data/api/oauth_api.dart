@@ -1,6 +1,4 @@
 import 'package:url_launcher/url_launcher.dart';
-import 'dio_client.dart';
-import '../user_info.dart';
 
 class OAuthAPI {
   /// Sign in with Google using browser-based OAuth flow

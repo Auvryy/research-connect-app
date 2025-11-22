@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:inquira/widgets/secondary_button.dart';
 import 'package:inquira/widgets/toggle_login_register.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/primary_button.dart';
