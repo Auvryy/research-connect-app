@@ -50,7 +50,12 @@ class _LoginPageState extends State<LoginPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Login successful!")),
           );
-          Navigator.pushReplacementNamed(context, '/home');
+          // Use pushNamedAndRemoveUntil to ensure clean navigation
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/home',
+            (route) => false, // Remove all previous routes
+          );
         }
       } else {
         // failed login

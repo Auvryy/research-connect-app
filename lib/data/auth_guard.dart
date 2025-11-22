@@ -33,20 +33,38 @@ class _AuthGuardState extends State<AuthGuard> {
           currentUser = userInfo;
           print('AuthGuard: User session found - ${userInfo.username}');
           
-          // Try to refresh token to verify session is still valid
+          // First, allow user in immediately (prevents redirect loop)
+          setState(() {
+            _isAuthenticated = true;
+            _isLoading = false;
+          });
+          
+          // Then try to refresh token in background for security
+          // Use timeout to prevent hanging on slow networks
           try {
-            final refreshResponse = await AuthAPI.refreshToken();
-            if (refreshResponse['ok'] == true) {
-              print('AuthGuard: Session refreshed successfully');
-              setState(() {
-                _isAuthenticated = true;
-                _isLoading = false;
-              });
-              return;
+            print('AuthGuard: Attempting to refresh token (background)...');
+            final refreshResult = await AuthAPI.refreshToken().timeout(
+              const Duration(seconds: 5),
+              onTimeout: () {
+                print('AuthGuard: Token refresh timed out (network slow), continuing with existing session');
+                return {'ok': false, 'message': 'Timeout'};
+              },
+            );
+            
+            if (refreshResult['ok'] == true) {
+              print('AuthGuard: Token refreshed successfully');
+            } else {
+              print('AuthGuard: Token refresh failed - ${refreshResult['message']}');
+              // If token is actually expired (not just network issue), subsequent API calls will catch it
+              // and redirect to login via DioClient interceptor
             }
           } catch (e) {
-            print('AuthGuard: Token refresh failed: $e');
+            print('AuthGuard: Exception during token refresh: $e');
+            // Non-blocking - user continues with existing session
+            // API calls will handle actual token expiration
           }
+          
+          return;
         }
       }
       
@@ -81,6 +99,7 @@ class _AuthGuardState extends State<AuthGuard> {
     if (!_isAuthenticated) {
       // Redirect to login
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        print('AuthGuard: Redirecting to login...');
         Navigator.of(context).pushReplacementNamed('/login');
       });
       return const Scaffold(
@@ -90,6 +109,8 @@ class _AuthGuardState extends State<AuthGuard> {
       );
     }
 
+    // User is authenticated, show the requested page
+    print('AuthGuard: User authenticated, showing page');
     return widget.child;
   }
 }

@@ -236,30 +236,40 @@ class AuthAPI {
 
   static Future<Map<String, dynamic>> refreshToken() async {
     try {
+      print('AuthAPI.refreshToken: Attempting to refresh token...');
       await DioClient.init();  // Ensure client is initialized
+      
       final response = await DioClient.post('/refresh');
+      
+      print('AuthAPI.refreshToken: Response received - $response');
       
       // Handle different response types
       if (response is Map<String, dynamic>) {
-        return response;
+        if (response['ok'] == true) {
+          print('AuthAPI.refreshToken: Token refreshed successfully');
+          return {'ok': true, 'message': 'Token refreshed'};
+        } else {
+          print('AuthAPI.refreshToken: Server returned error: ${response['message']}');
+          return response;
+        }
       } else if (response is String) {
+        print('AuthAPI.refreshToken: String response: $response');
         return {
-          'status': 500,
           'ok': false,
           'message': response,
         };
       } else {
+        print('AuthAPI.refreshToken: Invalid response format');
         return {
-          'status': 500,
           'ok': false,
           'message': 'Invalid response format',
         };
       }
     } catch (e) {
+      print('AuthAPI.refreshToken: Error - $e');
       return {
-        'status': 500,
         'ok': false,
-        'message': e.toString(),
+        'message': 'Token refresh failed: $e',
       };
     }
   }
