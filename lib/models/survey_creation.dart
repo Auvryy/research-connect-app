@@ -63,7 +63,7 @@ class SurveyCreation {
       }).toList(),
       'data': questions.map((q) => {
         'questionId': q.id,
-        'text': q.text,
+        'title': q.text, // Backend expects 'title' not 'text'
         'type': q.type.toBackendString(),
         'required': q.required,
         'options': q.options,

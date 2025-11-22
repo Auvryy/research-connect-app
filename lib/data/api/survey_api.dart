@@ -34,6 +34,17 @@ class SurveyAPI {
       final dio = await DioClient.instance;
       
       print('SurveyAPI: Preparing survey submission...');
+      
+      // Proactively refresh token before submitting to prevent expiry during upload
+      try {
+        print('SurveyAPI: Refreshing token before submission...');
+        await dio.post('/refresh');
+        print('SurveyAPI: Token refreshed successfully');
+      } catch (e) {
+        print('SurveyAPI: Token refresh failed (will retry if needed): $e');
+        // Continue anyway - interceptor will handle if token is actually expired
+      }
+      
       print('Survey data: $surveyData');
       print('Images to upload: ${questionImages?.length ?? 0}');
       
