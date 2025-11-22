@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/models/question_type.dart';
@@ -5,6 +6,7 @@ import 'package:inquira/models/survey_creation.dart';
 import 'package:inquira/widgets/primary_button.dart';
 import 'package:inquira/data/survey_service.dart';
 import 'package:inquira/data/draft_service.dart';
+import 'package:inquira/data/api/survey_api.dart';
 
 class SurveyReviewPage extends StatelessWidget {
   final SurveyCreation surveyData;
@@ -185,14 +187,39 @@ class SurveyReviewPage extends StatelessWidget {
         ),
       );
 
-      print('Saving survey to local storage (Backend disconnected for debugging)...');
+      print('Publishing survey to backend...');
       
-      // Save directly to local storage without backend
-      final userId = await SurveyService.getCurrentUserId();
-      final survey = SurveyService.surveyCreationToSurvey(surveyData, userId);
-      await SurveyService.saveSurvey(survey);
+      // Collect all question images that need to be uploaded
+      Map<String, File> questionImages = {};
       
-      print('Survey saved locally: ${survey.toJson()}');
+      for (var question in surveyData.questions) {
+        // Check if question has an image and it's a local file path
+        if (question.imageUrl != null && 
+            question.imageUrl!.isNotEmpty &&
+            !question.imageUrl!.startsWith('http')) {
+          
+          final imageFile = File(question.imageUrl!);
+          if (imageFile.existsSync()) {
+            // Use the imageKey from the question model (format: "image_{questionId}")
+            questionImages[question.imageKey] = imageFile;
+            print('Collected image for ${question.imageKey}: ${imageFile.path}');
+          }
+        }
+      }
+      
+      print('Total images to upload: ${questionImages.length}');
+      
+      // Prepare survey data for backend
+      final backendData = surveyData.toBackendJson();
+      
+      print('Survey data prepared. Sending to backend...');
+      print('Data structure: ${backendData.keys.join(', ')}');
+      
+      // Submit survey with images using FormData
+      final result = await SurveyAPI.createSurvey(
+        surveyData: backendData,
+        questionImages: questionImages.isNotEmpty ? questionImages : null,
+      );
       
       if (!context.mounted) return;
       
@@ -202,21 +229,37 @@ class SurveyReviewPage extends StatelessWidget {
         isDialogShowing = false;
       }
       
-      // Clear draft after successful save
-      await DraftService.clearDraft();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Survey saved locally! 🎉 (Debug Mode)'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      
-      // Navigate back to home
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (context.mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+      if (result['ok'] == true) {
+        // Success - clear draft
+        await DraftService.clearDraft();
+        
+        // Also save locally for offline access
+        final userId = await SurveyService.getCurrentUserId();
+        final survey = SurveyService.surveyCreationToSurvey(surveyData, userId);
+        await SurveyService.saveSurvey(survey);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Survey published successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // Navigate back to home
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (context.mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      } else {
+        // Error from backend
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ ${result['message'] ?? 'Failed to publish survey'}'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 4),
+          ),
+        );
       }
     } catch (e, stackTrace) {
       print('Error publishing survey: $e');

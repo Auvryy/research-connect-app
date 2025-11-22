@@ -1,19 +1,91 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'dio_client.dart';
 
 class SurveyAPI {
-  /// Submit a survey to the backend
+  /// Submit a survey to the backend with image uploads using FormData
   /// POST /api/survey/post/send/questionnaire/mobile
-  static Future<Map<String, dynamic>> createSurvey(Map<String, dynamic> surveyData) async {
+  /// 
+  /// Uses FormData to handle file uploads with the following structure:
+  /// - Survey metadata as regular form fields
+  /// - Image files with keys in format "image_{questionId}"
+  /// 
+  /// Example FormData structure:
+  /// ```
+  /// {
+  ///   "caption": "Survey",
+  ///   "title": "My Survey",
+  ///   "description": "Description",
+  ///   "timeToComplete": "5-10 min",
+  ///   "tags": "tag1,tag2",
+  ///   "targetAudience": "Students,Researchers",
+  ///   "sections": "[{...}]",  // JSON string
+  ///   "data": "[{...}]",      // JSON string
+  ///   "image_question-1763633434439": [FILE],  // Image file for question
+  ///   "image_question-1763633434440": [FILE]   // Image file for another question
+  /// }
+  /// ```
+  static Future<Map<String, dynamic>> createSurvey({
+    required Map<String, dynamic> surveyData,
+    Map<String, File>? questionImages,
+  }) async {
     try {
       final dio = await DioClient.instance;
       
-      print('SurveyAPI: Sending survey data to backend...');
+      print('SurveyAPI: Preparing survey submission...');
       print('Survey data: $surveyData');
+      print('Images to upload: ${questionImages?.length ?? 0}');
+      
+      // Check if we have images to upload
+      final hasImages = questionImages != null && questionImages.isNotEmpty;
+      
+      dynamic requestData;
+      
+      if (hasImages) {
+        // Use FormData for surveys with images
+        print('SurveyAPI: Creating FormData with images...');
+        
+        FormData formData = FormData.fromMap({
+          'caption': surveyData['caption'],
+          'title': surveyData['title'],
+          'description': surveyData['description'],
+          'timeToComplete': surveyData['timeToComplete'],
+          'tags': (surveyData['tags'] as List).join(','),
+          'targetAudience': (surveyData['targetAudience'] as List).join(','),
+          'sections': jsonEncode(surveyData['sections']),
+          'data': jsonEncode(surveyData['data']),
+        });
+        
+        // Add image files with keys matching imageKey format: "image_{questionId}"
+        for (var entry in questionImages.entries) {
+          final imageKey = entry.key; // Should already be in format "image_question-xxx"
+          final imageFile = entry.value;
+          
+          print('SurveyAPI: Adding image with key: $imageKey');
+          
+          formData.files.add(
+            MapEntry(
+              imageKey,
+              await MultipartFile.fromFile(
+                imageFile.path,
+                filename: imageFile.path.split(Platform.pathSeparator).last,
+              ),
+            ),
+          );
+        }
+        
+        requestData = formData;
+        print('SurveyAPI: FormData prepared with ${questionImages.length} images');
+      } else {
+        // Use JSON for surveys without images
+        print('SurveyAPI: Sending as JSON (no images)');
+        requestData = surveyData;
+      }
       
       final response = await dio.post(
         '/../survey/post/send/questionnaire/mobile',
-        data: surveyData,
+        data: requestData,
       );
       
       print('SurveyAPI: Response status: ${response.statusCode}');

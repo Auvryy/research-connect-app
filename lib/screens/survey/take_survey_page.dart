@@ -64,42 +64,108 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
       _errorMessage = null;
     });
 
-    try {
-      // Fetch survey questionnaire from backend
-      final data = await SurveyAPI.getSurveyQuestionnaire(widget.postId);
-      
-      if (data['ok'] == true) {
-        _surveyInfo = data['message'] ?? data['survey'];
-        
-        // Backend returns nested structure: { message: { section: [{questions: [...]}] } }
-        final sections = _surveyInfo?['section'] as List<dynamic>? ?? [];
-        
-        // Flatten all questions from all sections for easy access
-        _allQuestions = [];
-        for (var section in sections) {
-          final questions = section['questions'] as List<dynamic>? ?? [];
-          _allQuestions!.addAll(questions);
-        }
-        
-        // Group questions by section using section_another_id
-        _groupQuestionsBySection();
-        
-        setState(() {
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = 'Failed to load survey';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      print('Error loading survey: $e');
-      setState(() {
-        _errorMessage = 'Error loading survey: ${e.toString()}';
-        _isLoading = false;
-      });
+    // TODO: Uncomment to connect to backend
+    // try {
+    //   final data = await SurveyAPI.getSurveyQuestionnaire(widget.postId);
+    //   if (data['ok'] == true) {
+    //     _surveyInfo = data['message'] ?? data['survey'];
+    //     final sections = _surveyInfo?['section'] as List<dynamic>? ?? [];
+    //     _allQuestions = [];
+    //     for (var section in sections) {
+    //       final questions = section['questions'] as List<dynamic>? ?? [];
+    //       _allQuestions!.addAll(questions);
+    //     }
+    //     _groupQuestionsBySection();
+    //     setState(() {
+    //       _isLoading = false;
+    //     });
+    //   } else {
+    //     setState(() {
+    //       _errorMessage = 'Failed to load survey';
+    //       _isLoading = false;
+    //     });
+    //   }
+    // } catch (e) {
+    //   print('Error loading survey: $e');
+    //   setState(() {
+    //     _errorMessage = 'Error loading survey: ${e.toString()}';
+    //     _isLoading = false;
+    //   });
+    // }
+
+    // MOCK DATA FOR DEBUGGING - Remove when connecting to backend
+    await Future.delayed(const Duration(milliseconds: 500)); // Simulate network delay
+    
+    _surveyInfo = {
+      'title': 'Debug Survey',
+      'description': 'Test survey for debugging UI',
+      'section': [
+        {
+          'section_another_id': 'section-1',
+          'section_name': 'Personal Information',
+          'questions': [
+            {
+              'question_another_id': 'q1',
+              'question': 'What is your name?',
+              'type': 'shortText',
+              'required': true,
+            },
+            {
+              'question_another_id': 'q2',
+              'question': 'What is your email?',
+              'type': 'email',
+              'required': true,
+            },
+          ],
+        },
+        {
+          'section_another_id': 'section-2',
+          'section_name': 'Preferences',
+          'questions': [
+            {
+              'question_another_id': 'q3',
+              'question': 'Select your favorite color',
+              'type': 'radioButton',
+              'required': true,
+              'options': ['Red', 'Blue', 'Green', 'Yellow'],
+            },
+            {
+              'question_another_id': 'q4',
+              'question': 'Select all that apply',
+              'type': 'checkBox',
+              'required': false,
+              'options': ['Option A', 'Option B', 'Option C'],
+            },
+          ],
+        },
+        {
+          'section_another_id': 'section-3',
+          'section_name': 'Feedback',
+          'questions': [
+            {
+              'question_another_id': 'q5',
+              'question': 'Rate your experience',
+              'type': 'rating',
+              'required': true,
+              'max_rating': 5,
+            },
+          ],
+        },
+      ],
+    };
+    
+    final sections = _surveyInfo?['section'] as List<dynamic>? ?? [];
+    _allQuestions = [];
+    for (var section in sections) {
+      final questions = section['questions'] as List<dynamic>? ?? [];
+      _allQuestions!.addAll(questions);
     }
+    
+    _groupQuestionsBySection();
+    
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   void _groupQuestionsBySection() {

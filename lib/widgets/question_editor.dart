@@ -77,42 +77,6 @@ class _QuestionEditorState extends State<QuestionEditor> {
         ),
       );
     }
-
-    // Add listener to validate on text change
-    _questionController.addListener(_validateQuestionText);
-  }
-
-  void _validateQuestionText() {
-    final text = _questionController.text.trim();
-    if (text.isEmpty) return;
-
-    final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-    
-    // Check word count (4-150 words)
-    if (words.length < 4) {
-      // Don't show error while typing
-      return;
-    }
-    if (words.length > 150) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Question must not exceed 150 words'),
-          backgroundColor: AppColors.error,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
-    
-    // Check character count (max 2000)
-    if (text.length > 2000) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Question must not exceed 2000 characters'),
-          backgroundColor: AppColors.error,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
   }
 
   @override
