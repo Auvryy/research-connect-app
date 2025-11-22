@@ -62,18 +62,19 @@ class SurveyCreation {
         'order': s.order,
       }).toList(),
       'data': questions.map((q) => {
-        'id': q.id,
-        'sectionId': q.sectionId.isEmpty ? 'default' : q.sectionId,
-        'title': q.text,
+        'questionId': q.id,
+        'text': q.text,
         'type': q.type.toBackendString(),
-        'order': q.order,
         'required': q.required,
         'options': q.options,
+        'imageUrl': q.imageUrl,
+        'imageKey': q.imageKey, // "image_{questionId}" - tells backend which FormData field has this question's image
+        'videoUrl': q.videoUrl,
+        'order': q.order,
+        'sectionId': q.sectionId.isEmpty ? 'default' : q.sectionId,
         'minChoice': q.minChoice,
         'maxChoice': q.maxChoice,
         'maxRating': q.maxRating,
-        'imageUrl': q.imageUrl,
-        'videoUrl': q.videoUrl,
       }).toList(),
     };
   }
@@ -164,6 +165,10 @@ class SurveyQuestion {
   String? videoUrl;
   int order;
   String sectionId;
+  
+  /// Get the FormData key for this question's image
+  /// Returns "image_{questionId}" for backend to identify which question the image belongs to
+  String get imageKey => 'image_$id';
 
   SurveyQuestion({
     required this.id,
@@ -191,6 +196,7 @@ class SurveyQuestion {
       'maxChoice': maxChoice,
       'maxRating': maxRating,
       'imageUrl': imageUrl,
+      'imageKey': imageKey, // "image_{questionId}"
       'videoUrl': videoUrl,
       'order': order,
       'sectionId': sectionId,
