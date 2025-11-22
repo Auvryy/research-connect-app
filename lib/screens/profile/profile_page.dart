@@ -152,8 +152,8 @@ class _ProfilePageState extends State<ProfilePage> {
           currentUser = currentUser!.copyWith(schoolId: newValue);
         } else if (field == 'school') {
           currentUser = currentUser!.copyWith(school: newValue);
-        } else if (field == 'course') {
-          currentUser = currentUser!.copyWith(course: newValue);
+        } else if (field == 'program') {
+          currentUser = currentUser!.copyWith(program: newValue);
         }
         
         // Save to SharedPreferences
@@ -401,10 +401,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 12),
                   _SettingsItem(
                     icon: Icons.book,
-                    label: currentUser?.course != null && currentUser!.course!.isNotEmpty
-                        ? currentUser!.course!
-                        : "Course (Not set)",
-                    onTap: () => _showEditDialog('Course', 'course', currentUser?.course, Icons.book, Colors.cyan),
+                    label: currentUser?.program != null && currentUser!.program!.isNotEmpty
+                        ? currentUser!.program!
+                        : "Program (Not set)",
+                    onTap: () => _showEditDialog('Program', 'program', currentUser?.program, Icons.book, Colors.cyan),
                     iconColor: Colors.cyan,
                   ),
                   const SizedBox(height: 20),

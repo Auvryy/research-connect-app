@@ -10,7 +10,7 @@ class UserInfo {
   final String? phoneNumber;
   final String? schoolId;
   final String? school;
-  final String? course;
+  final String? program;
 
   UserInfo({
     this.id,
@@ -21,21 +21,21 @@ class UserInfo {
     this.phoneNumber,
     this.schoolId,
     this.school,
-    this.course,
+    this.program,
   });
 
   factory UserInfo.fromJson(Map<String, dynamic> json) {
     return UserInfo(
       id: json['id'] as int?,
-      username: json['username'] as String,
-      // Backend returns 'profile_pic' from /login_success and 'profile_pic_url' from get_user()
-      profilePicUrl: json['profile_pic'] as String? ?? json['profile_pic_url'] as String?,
+      username: (json['username'] ?? '') as String,
+      // Backend returns 'profile_pic_url' from get_user()
+      profilePicUrl: json['profile_pic_url'] as String?,
       role: json['role'] as String?,
       email: json['email'] as String?,
       phoneNumber: json['phone_number'] as String?,
       schoolId: json['school_id'] as String?,
       school: json['school'] as String?,
-      course: json['course'] as String?,
+      program: json['program'] as String?,
     );
   }
 
@@ -49,7 +49,7 @@ class UserInfo {
       'phone_number': phoneNumber,
       'school_id': schoolId,
       'school': school,
-      'course': course,
+      'program': program,
     };
   }
 
@@ -63,7 +63,7 @@ class UserInfo {
     String? phoneNumber,
     String? schoolId,
     String? school,
-    String? course,
+    String? program,
   }) {
     return UserInfo(
       id: id ?? this.id,
@@ -74,7 +74,7 @@ class UserInfo {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       schoolId: schoolId ?? this.schoolId,
       school: school ?? this.school,
-      course: course ?? this.course,
+      program: program ?? this.program,
     );
   }
 
@@ -92,7 +92,7 @@ class UserInfo {
       if (user.phoneNumber != null) await prefs.setString('user_phone', user.phoneNumber!);
       if (user.schoolId != null) await prefs.setString('user_school_id', user.schoolId!);
       if (user.school != null) await prefs.setString('user_school', user.school!);
-      if (user.course != null) await prefs.setString('user_course', user.course!);
+      if (user.program != null) await prefs.setString('user_program', user.program!);
       
       print('UserInfo saved successfully: ${user.username}');
       return true;
@@ -123,7 +123,7 @@ class UserInfo {
         phoneNumber: prefs.getString('user_phone'),
         schoolId: prefs.getString('user_school_id'),
         school: prefs.getString('user_school'),
-        course: prefs.getString('user_course'),
+        program: prefs.getString('user_program'),
       );
     } catch (e) {
       print('Error loading UserInfo: $e');
@@ -143,7 +143,7 @@ class UserInfo {
       await prefs.remove('user_phone');
       await prefs.remove('user_school_id');
       await prefs.remove('user_school');
-      await prefs.remove('user_course');
+      await prefs.remove('user_program');
       print('UserInfo cleared from SharedPreferences');
     } catch (e) {
       print('Error clearing UserInfo: $e');

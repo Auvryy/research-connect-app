@@ -475,7 +475,6 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> with SingleTickerProvid
   }
 
   Widget _buildQuestionCard(Map<String, dynamic> question, int questionNumber) {
-    final questionId = question['id'] as String;
     final questionText = question['text'] as String;
     final questionType = question['type'] as String;
     final isRequired = question['required'] == true;

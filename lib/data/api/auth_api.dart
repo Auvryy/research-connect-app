@@ -131,25 +131,20 @@ class AuthAPI {
             
             if (userDataResponse is Map<String, dynamic> && 
                 userDataResponse['ok'] == true) {
-              final userData = userDataResponse['message'];
+              final messageData = userDataResponse['message'];
               
-              if (userData is Map<String, dynamic>) {
-                // Get profile pic and ensure it's null if empty
-                String? profilePicUrl = userData['profile_pic'] as String?;
-                if (profilePicUrl != null && profilePicUrl.trim().isEmpty) {
-                  profilePicUrl = null;
-                }
+              // Backend returns nested structure: {message: {user_info: {...}}}
+              if (messageData is Map<String, dynamic> && messageData.containsKey('user_info')) {
+                final userData = messageData['user_info'] as Map<String, dynamic>;
                 
-                // Create UserInfo from the response
-                final userInfo = UserInfo(
-                  id: userData['id'] as int?,
-                  username: userData['username'] as String,
-                  profilePicUrl: profilePicUrl,
-                );
+                // Create UserInfo from the nested response
+                final userInfo = UserInfo.fromJson(userData);
                 
                 // Save user info to SharedPreferences
                 await UserInfo.saveUserInfo(userInfo);
                 print('AuthAPI.login: User info saved successfully');
+              } else {
+                print('AuthAPI.login: Invalid user data structure');
               }
             }
           } catch (userDataError) {
