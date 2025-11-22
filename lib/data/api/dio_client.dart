@@ -62,15 +62,32 @@ class DioClient {
 
       // Add interceptor for automatic token refresh
       dio.interceptors.add(InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          // Before each request, try to refresh token proactively if needed
+          // This prevents the "Access token expired" error from showing to users
+          return handler.next(options);
+        },
         onError: (DioException error, ErrorInterceptorHandler handler) async {
-          // If we get a 401, try to refresh token
-          if (error.response?.statusCode == 401) {
-            print('DioClient: Received 401, attempting token refresh...');
+          // Check if error message indicates token expiration
+          final errorMsg = error.response?.data?['message']?.toString() ?? '';
+          final isTokenExpired = error.response?.statusCode == 401 || 
+                                errorMsg.contains('Access token expired');
+          
+          if (isTokenExpired) {
+            print('DioClient: Token expired, attempting refresh...');
             try {
-              final refreshResponse = await dio.post('/refresh');
-              if (refreshResponse.statusCode == 200) {
-                print('DioClient: Token refreshed, retrying original request...');
-                // Retry the original request
+              // Create a new dio instance without interceptors to avoid infinite loop
+              final refreshDio = Dio(dio.options);
+              if (_cookieJar != null) {
+                refreshDio.interceptors.add(CookieManager(_cookieJar!));
+              }
+              
+              final refreshResponse = await refreshDio.post('/refresh');
+              
+              if (refreshResponse.statusCode == 200 && refreshResponse.data['ok'] == true) {
+                print('DioClient: Token refreshed successfully, retrying request...');
+                
+                // Retry the original request with refreshed token
                 final options = error.requestOptions;
                 final response = await dio.request(
                   options.path,
@@ -82,9 +99,12 @@ class DioClient {
                   ),
                 );
                 return handler.resolve(response);
+              } else {
+                print('DioClient: Token refresh returned non-success');
               }
             } catch (e) {
               print('DioClient: Token refresh failed: $e');
+              // If refresh fails, user needs to login again
             }
           }
           return handler.next(error);
