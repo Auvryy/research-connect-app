@@ -7,8 +7,6 @@ class UserInfo {
   final String? profilePicUrl;
   final String? role;
   final String? email;
-  final String? phoneNumber;
-  final String? schoolId;
   final String? school;
   final String? program;
 
@@ -18,8 +16,6 @@ class UserInfo {
     this.profilePicUrl,
     this.role,
     this.email,
-    this.phoneNumber,
-    this.schoolId,
     this.school,
     this.program,
   });
@@ -32,8 +28,6 @@ class UserInfo {
       profilePicUrl: json['profile_pic_url'] as String?,
       role: json['role'] as String?,
       email: json['email'] as String?,
-      phoneNumber: json['phone_number'] as String?,
-      schoolId: json['school_id'] as String?,
       school: json['school'] as String?,
       program: json['program'] as String?,
     );
@@ -46,8 +40,6 @@ class UserInfo {
       'profile_pic_url': profilePicUrl,
       'role': role,
       'email': email,
-      'phone_number': phoneNumber,
-      'school_id': schoolId,
       'school': school,
       'program': program,
     };
@@ -60,8 +52,6 @@ class UserInfo {
     String? profilePicUrl,
     String? role,
     String? email,
-    String? phoneNumber,
-    String? schoolId,
     String? school,
     String? program,
   }) {
@@ -71,8 +61,6 @@ class UserInfo {
       profilePicUrl: profilePicUrl ?? this.profilePicUrl,
       role: role ?? this.role,
       email: email ?? this.email,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
-      schoolId: schoolId ?? this.schoolId,
       school: school ?? this.school,
       program: program ?? this.program,
     );
@@ -89,8 +77,6 @@ class UserInfo {
       if (user.profilePicUrl != null) await prefs.setString('user_profile_pic', user.profilePicUrl!);
       if (user.role != null) await prefs.setString('user_role', user.role!);
       if (user.email != null) await prefs.setString('user_email', user.email!);
-      if (user.phoneNumber != null) await prefs.setString('user_phone', user.phoneNumber!);
-      if (user.schoolId != null) await prefs.setString('user_school_id', user.schoolId!);
       if (user.school != null) await prefs.setString('user_school', user.school!);
       if (user.program != null) await prefs.setString('user_program', user.program!);
       
@@ -120,8 +106,6 @@ class UserInfo {
         profilePicUrl: prefs.getString('user_profile_pic'),
         role: prefs.getString('user_role'),
         email: prefs.getString('user_email'),
-        phoneNumber: prefs.getString('user_phone'),
-        schoolId: prefs.getString('user_school_id'),
         school: prefs.getString('user_school'),
         program: prefs.getString('user_program'),
       );
@@ -140,8 +124,6 @@ class UserInfo {
       await prefs.remove('user_profile_pic');
       await prefs.remove('user_role');
       await prefs.remove('user_email');
-      await prefs.remove('user_phone');
-      await prefs.remove('user_school_id');
       await prefs.remove('user_school');
       await prefs.remove('user_program');
       print('UserInfo cleared from SharedPreferences');

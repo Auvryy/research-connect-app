@@ -7,23 +7,16 @@ class SurveyAPI {
   /// Submit a survey to the backend with image uploads using FormData
   /// POST /api/survey/post/send/questionnaire/mobile
   /// 
-  /// Uses FormData to handle file uploads with the following structure:
-  /// - Survey metadata as regular form fields
+  /// Always uses FormData (matching web implementation) with the following structure:
+  /// - ALL survey data bundled as ONE JSON string under "surveyData" key
   /// - Image files with keys in format "image_{questionId}"
   /// 
   /// Example FormData structure:
   /// ```
   /// {
-  ///   "caption": "Survey",
-  ///   "title": "My Survey",
-  ///   "description": "Description",
-  ///   "timeToComplete": "5-10 min",
-  ///   "tags": "tag1,tag2",
-  ///   "targetAudience": "Students,Researchers",
-  ///   "sections": "[{...}]",  // JSON string
-  ///   "data": "[{...}]",      // JSON string
-  ///   "image_question-1763633434439": [FILE],  // Image file for question
-  ///   "image_question-1763633434440": [FILE]   // Image file for another question
+  ///   "surveyData": "{\"caption\":\"Survey\",\"title\":\"My Survey\",...}",  // JSON string of entire survey
+  ///   "image_question-1763633434439": [FILE],  // Image file for question (optional)
+  ///   "image_question-1763633434440": [FILE]   // Image file for another question (optional)
   /// }
   /// ```
   static Future<Map<String, dynamic>> createSurvey({
@@ -48,30 +41,22 @@ class SurveyAPI {
       print('Survey data: $surveyData');
       print('Images to upload: ${questionImages?.length ?? 0}');
       
-      // Check if we have images to upload
-      final hasImages = questionImages != null && questionImages.isNotEmpty;
+      // Always use FormData to match web implementation
+      print('SurveyAPI: Creating FormData...');
       
-      dynamic requestData;
+      // Bundle ALL survey data into ONE JSON string under "surveyData" key
+      FormData formData = FormData.fromMap({
+        'surveyData': jsonEncode(surveyData),
+      });
       
-      if (hasImages) {
-        // Use FormData for surveys with images
-        print('SurveyAPI: Creating FormData with images...');
-        
-        FormData formData = FormData.fromMap({
-          'caption': surveyData['caption'],
-          'title': surveyData['title'],
-          'description': surveyData['description'],
-          'timeToComplete': surveyData['timeToComplete'],
-          'tags': (surveyData['tags'] as List).join(','),
-          'targetAudience': (surveyData['targetAudience'] as List).join(','),
-          'sections': jsonEncode(surveyData['sections']),
-          'data': jsonEncode(surveyData['data']),
-        });
-        
-        // Add image files with keys matching imageKey format: "image_{questionId}"
+      // Add image files with keys matching imageKey format: "image_{questionId}"
+      if (questionImages != null && questionImages.isNotEmpty) {
         for (var entry in questionImages.entries) {
-          final imageKey = entry.key; // Should already be in format "image_question-xxx"
+          final questionId = entry.key; // e.g., "question-1763633434439"
           final imageFile = entry.value;
+          
+          // Add "image_" prefix to match backend expectation: "image_question-123..."
+          final imageKey = 'image_$questionId';
           
           print('SurveyAPI: Adding image with key: $imageKey');
           
@@ -85,18 +70,14 @@ class SurveyAPI {
             ),
           );
         }
-        
-        requestData = formData;
         print('SurveyAPI: FormData prepared with ${questionImages.length} images');
       } else {
-        // Use JSON for surveys without images
-        print('SurveyAPI: Sending as JSON (no images)');
-        requestData = surveyData;
+        print('SurveyAPI: FormData prepared without images');
       }
       
       final response = await dio.post(
         '/../survey/post/send/questionnaire/mobile',
-        data: requestData,
+        data: formData,
       );
       
       print('SurveyAPI: Response status: ${response.statusCode}');

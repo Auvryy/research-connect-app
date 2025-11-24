@@ -108,15 +108,26 @@ class _ProfilePageState extends State<ProfilePage> {
               labelText: title,
               prefixIcon: Icon(icon, color: color),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              hintText: field == 'school' || field == 'program' 
+                  ? 'Min 5 characters' 
+                  : null,
             ),
-            keyboardType: field == 'email' ? TextInputType.emailAddress : 
-                         field == 'phone' ? TextInputType.phone : TextInputType.text,
+            keyboardType: field == 'email' ? TextInputType.emailAddress : TextInputType.text,
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
                 return 'This field cannot be empty';
               }
               if (field == 'email' && !value.contains('@')) {
                 return 'Please enter a valid email';
+              }
+              // Validate school and program length (backend requirement)
+              if (field == 'school' || field == 'program') {
+                if (value.trim().length < 5) {
+                  return '${title} must be at least 5 characters';
+                }
+                if (value.trim().length > 256) {
+                  return '${title} must not exceed 256 characters';
+                }
               }
               return null;
             },
@@ -143,30 +154,134 @@ class _ProfilePageState extends State<ProfilePage> {
     if (result == true && mounted) {
       final newValue = controller.text.trim();
       if (currentUser != null) {
-        // Update currentUser based on field
-        if (field == 'email') {
-          currentUser = currentUser!.copyWith(email: newValue);
-        } else if (field == 'phone') {
-          currentUser = currentUser!.copyWith(phoneNumber: newValue);
-        } else if (field == 'schoolId') {
-          currentUser = currentUser!.copyWith(schoolId: newValue);
-        } else if (field == 'school') {
-          currentUser = currentUser!.copyWith(school: newValue);
+        // Show loading
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(child: CircularProgressIndicator()),
+        );
+        
+        // Prepare API call data based on field
+        // Backend supports: school, program (via update_data endpoint)
+        // Email is local only
+        bool apiSuccess = true;
+        
+        if (field == 'school') {
+          // Check if program is set before making API call
+          if (currentUser!.program == null || currentUser!.program!.trim().isEmpty || currentUser!.program!.trim().length < 5) {
+            // Close loading dialog
+            if (mounted) Navigator.of(context).pop();
+            
+            // Show warning dialog
+            if (mounted) {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Program Required'),
+                  content: const Text('Please set your program first (minimum 5 characters). Both school and program are required to update profile.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            controller.dispose();
+            return;
+          }
+          
+          try {
+            // Backend requires BOTH school and program
+            final response = await AuthAPI.updateUserProfile(
+              school: newValue,
+              program: currentUser!.program!, // Use existing valid program
+            );
+            apiSuccess = response['ok'] == true;
+            if (apiSuccess) {
+              currentUser = currentUser!.copyWith(school: newValue);
+            } else {
+              print('API returned error: ${response['message']}');
+            }
+          } catch (e) {
+            print('Error updating school on backend: $e');
+            apiSuccess = false;
+          }
         } else if (field == 'program') {
-          currentUser = currentUser!.copyWith(program: newValue);
+          // Check if school is set before making API call
+          if (currentUser!.school == null || currentUser!.school!.trim().isEmpty || currentUser!.school!.trim().length < 5) {
+            // Close loading dialog
+            if (mounted) Navigator.of(context).pop();
+            
+            // Show warning dialog
+            if (mounted) {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('School Required'),
+                  content: const Text('Please set your school first (minimum 5 characters). Both school and program are required to update profile.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            controller.dispose();
+            return;
+          }
+          
+          try {
+            // Backend requires BOTH school and program
+            final response = await AuthAPI.updateUserProfile(
+              school: currentUser!.school!, // Use existing valid school
+              program: newValue,
+            );
+            apiSuccess = response['ok'] == true;
+            if (apiSuccess) {
+              currentUser = currentUser!.copyWith(program: newValue);
+            } else {
+              print('API returned error: ${response['message']}');
+            }
+          } catch (e) {
+            print('Error updating program on backend: $e');
+            apiSuccess = false;
+          }
+        } else if (field == 'email') {
+          // Email is local only (backend doesn't support direct update)
+          currentUser = currentUser!.copyWith(email: newValue);
         }
         
-        // Save to SharedPreferences
-        await UserInfo.saveUserInfo(currentUser!);
-        setState(() {});
+        // Close loading dialog
+        if (mounted) Navigator.of(context).pop();
         
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('$title updated successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+        if (apiSuccess) {
+          // Save to SharedPreferences
+          await UserInfo.saveUserInfo(currentUser!);
+          setState(() {});
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$title updated successfully!'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to update. Please check your input and try again.'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
         }
       }
     }
@@ -370,24 +485,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         : "Email (Not set)",
                     onTap: () => _showEditDialog('Email', 'email', currentUser?.email, Icons.email, Colors.purple),
                     iconColor: Colors.purple,
-                  ),
-                  const SizedBox(height: 12),
-                  _SettingsItem(
-                    icon: Icons.phone,
-                    label: currentUser?.phoneNumber != null && currentUser!.phoneNumber!.isNotEmpty
-                        ? currentUser!.phoneNumber!
-                        : "Phone Number (Not set)",
-                    onTap: () => _showEditDialog('Phone Number', 'phone', currentUser?.phoneNumber, Icons.phone, Colors.green),
-                    iconColor: Colors.green,
-                  ),
-                  const SizedBox(height: 12),
-                  _SettingsItem(
-                    icon: Icons.badge,
-                    label: currentUser?.schoolId != null && currentUser!.schoolId!.isNotEmpty
-                        ? currentUser!.schoolId!
-                        : "School ID (Not set)",
-                    onTap: () => _showEditDialog('School ID', 'schoolId', currentUser?.schoolId, Icons.badge, Colors.orange),
-                    iconColor: Colors.orange,
                   ),
                   const SizedBox(height: 12),
                   _SettingsItem(
