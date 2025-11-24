@@ -13,6 +13,8 @@ class AuthAPI {
       errors['username'] = 'Username must be at least 4 characters';
     } else if (username.length > 36) {
       errors['username'] = 'Username must not exceed 36 characters';
+    } else if (username.split(' ').length > 1) {
+      errors['username'] = 'Username must be 1 word only';
     }
 
     // Password validation
@@ -181,6 +183,111 @@ class AuthAPI {
     }
   }
 
+  /// Update user profile information (school, program)
+  /// Backend endpoint: PATCH /api/auth/update_data
+  /// Backend requires: username (unchanged), school, program
+  static Future<Map<String, dynamic>> updateUserProfile({
+    String? email,
+    String? school,
+    String? program,
+  }) async {
+    try {
+      print('AuthAPI.updateUserProfile: Starting profile update...');
+      await DioClient.init();
+
+      // Get current user info to fill in required fields
+      final currentUserData = await UserInfo.loadUserInfo();
+      if (currentUserData == null) {
+        return {
+          'status': 401,
+          'ok': false,
+          'message': 'User not logged in',
+        };
+      }
+
+      // Backend requires all three fields: username, school, program
+      final Map<String, dynamic> data = {
+        'username': currentUserData.username,
+        'school': school ?? currentUserData.school ?? '',
+        'program': program ?? currentUserData.program ?? '',
+      };
+
+      // Validate required fields
+      if (data['school'].toString().isEmpty || data['program'].toString().isEmpty) {
+        return {
+          'status': 400,
+          'ok': false,
+          'message': 'School and program are required',
+        };
+      }
+
+      // Validate school (min 5, max 256 characters)
+      if (data['school'].toString().length < 5) {
+        return {
+          'status': 400,
+          'ok': false,
+          'message': 'School must be at least 5 characters',
+        };
+      }
+      if (data['school'].toString().length > 256) {
+        return {
+          'status': 400,
+          'ok': false,
+          'message': 'School must not exceed 256 characters',
+        };
+      }
+
+      // Validate program (min 5, max 256 characters)
+      if (data['program'].toString().length < 5) {
+        return {
+          'status': 400,
+          'ok': false,
+          'message': 'Program must be at least 5 characters',
+        };
+      }
+      if (data['program'].toString().length > 256) {
+        return {
+          'status': 400,
+          'ok': false,
+          'message': 'Program must not exceed 256 characters',
+        };
+      }
+
+      print('AuthAPI.updateUserProfile: Sending data: $data');
+
+      final response = await DioClient.patch('/update_data', data: data);
+
+      print('AuthAPI.updateUserProfile: Response received: $response');
+
+      if (response is Map<String, dynamic>) {
+        // If update is successful, update local user data
+        if (response['ok'] == true) {
+          final updatedUser = currentUserData.copyWith(
+            email: email,
+            school: school,
+            program: program,
+          );
+          await UserInfo.saveUserInfo(updatedUser);
+          currentUser = updatedUser;
+          print('AuthAPI.updateUserProfile: Profile updated locally');
+        }
+
+        return response;
+      }
+
+      return {
+        'ok': false,
+        'message': 'Invalid response format',
+      };
+    } catch (e) {
+      print('AuthAPI.updateUserProfile: Error occurred: $e');
+      return {
+        'ok': false,
+        'message': 'Failed to update profile: $e',
+      };
+    }
+  }
+
   static Future<Map<String, dynamic>> logout() async {
     try {
       print('AuthAPI.logout: Starting logout...');
@@ -334,8 +441,4 @@ class AuthAPI {
       };
     }
   }
-
-
-
-
 }

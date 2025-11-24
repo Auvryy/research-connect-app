@@ -216,6 +216,45 @@ class DioClient {
     }
   }
 
+  static Future<dynamic> patch(String path, {Map<String, dynamic>? data}) async {
+    final dio = await instance;
+    try {
+      print('Making PATCH request to: ${dio.options.baseUrl}$path');
+      print('Request data: $data');
+      
+      final response = await dio.patch(
+        path,
+        data: data,
+        options: Options(
+          followRedirects: true,
+          validateStatus: (status) => status! < 500,
+          headers: {
+            'Accept': 'application/json',
+          },
+        ),
+      );
+      
+      print('Response status: ${response.statusCode}');
+      print('Response headers: ${response.headers}');
+      print('Response data: ${response.data}');
+      
+      return response.data;
+    } on DioException catch (e) {
+      print('DioError Type: ${e.type}');
+      print('Error Message: ${e.message}');
+      print('Error Response: ${e.response}');
+      print('Response Data: ${e.response?.data}');
+      
+      if (e.response?.data is Map) {
+        throw e.response?.data['message'] ?? 'An error occurred';
+      } else if (e.response?.data is String) {
+        throw e.response?.data ?? 'An error occurred';
+      } else {
+        throw e.message ?? 'An error occurred';
+      }
+    }
+  }
+
   static Future<dynamic> get(String path, {Map<String, dynamic>? params}) async {
     final dio = await instance;
     try {

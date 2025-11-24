@@ -108,15 +108,26 @@ class _ProfilePageState extends State<ProfilePage> {
               labelText: title,
               prefixIcon: Icon(icon, color: color),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              hintText: field == 'school' || field == 'program' 
+                  ? 'Min 2 characters (stored locally)' 
+                  : field == 'email' ? 'Stored locally' : null,
             ),
-            keyboardType: field == 'email' ? TextInputType.emailAddress : 
-                         field == 'phone' ? TextInputType.phone : TextInputType.text,
+            keyboardType: field == 'email' ? TextInputType.emailAddress : TextInputType.text,
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
                 return 'This field cannot be empty';
               }
               if (field == 'email' && !value.contains('@')) {
                 return 'Please enter a valid email';
+              }
+              // Optional: Validate length for consistency (stored locally)
+              if (field == 'school' || field == 'program') {
+                if (value.trim().length < 2) {
+                  return '${title} must be at least 2 characters';
+                }
+                if (value.trim().length > 256) {
+                  return '${title} must not exceed 256 characters';
+                }
               }
               return null;
             },
@@ -143,18 +154,33 @@ class _ProfilePageState extends State<ProfilePage> {
     if (result == true && mounted) {
       final newValue = controller.text.trim();
       if (currentUser != null) {
-        // Update currentUser based on field
-        if (field == 'email') {
-          currentUser = currentUser!.copyWith(email: newValue);
-        } else if (field == 'phone') {
-          currentUser = currentUser!.copyWith(phoneNumber: newValue);
-        } else if (field == 'schoolId') {
-          currentUser = currentUser!.copyWith(schoolId: newValue);
-        } else if (field == 'school') {
+        // Show loading
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(child: CircularProgressIndicator()),
+        );
+        
+        // Store all fields locally for now
+        // TODO: Backend sync when both school AND program are set and valid
+        // Currently: Email, School, Program are all LOCAL ONLY
+        
+        if (field == 'school') {
+          // Save locally only (no backend call to prevent freezing)
           currentUser = currentUser!.copyWith(school: newValue);
+          print('School updated locally: $newValue');
         } else if (field == 'program') {
+          // Save locally only (no backend call to prevent freezing)
           currentUser = currentUser!.copyWith(program: newValue);
+          print('Program updated locally: $newValue');
+        } else if (field == 'email') {
+          // Email is local only (backend doesn't support direct update)
+          currentUser = currentUser!.copyWith(email: newValue);
+          print('Email updated locally: $newValue');
         }
+        
+        // Close loading dialog
+        if (mounted) Navigator.of(context).pop();
         
         // Save to SharedPreferences
         await UserInfo.saveUserInfo(currentUser!);
@@ -165,6 +191,7 @@ class _ProfilePageState extends State<ProfilePage> {
             SnackBar(
               content: Text('$title updated successfully!'),
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
             ),
           );
         }
@@ -363,6 +390,31 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
+                  // Info box about local storage
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Information stored locally on your device',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue[900],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   _SettingsItem(
                     icon: Icons.email,
                     label: currentUser?.email != null && currentUser!.email!.isNotEmpty
@@ -370,24 +422,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         : "Email (Not set)",
                     onTap: () => _showEditDialog('Email', 'email', currentUser?.email, Icons.email, Colors.purple),
                     iconColor: Colors.purple,
-                  ),
-                  const SizedBox(height: 12),
-                  _SettingsItem(
-                    icon: Icons.phone,
-                    label: currentUser?.phoneNumber != null && currentUser!.phoneNumber!.isNotEmpty
-                        ? currentUser!.phoneNumber!
-                        : "Phone Number (Not set)",
-                    onTap: () => _showEditDialog('Phone Number', 'phone', currentUser?.phoneNumber, Icons.phone, Colors.green),
-                    iconColor: Colors.green,
-                  ),
-                  const SizedBox(height: 12),
-                  _SettingsItem(
-                    icon: Icons.badge,
-                    label: currentUser?.schoolId != null && currentUser!.schoolId!.isNotEmpty
-                        ? currentUser!.schoolId!
-                        : "School ID (Not set)",
-                    onTap: () => _showEditDialog('School ID', 'schoolId', currentUser?.schoolId, Icons.badge, Colors.orange),
-                    iconColor: Colors.orange,
                   ),
                   const SizedBox(height: 12),
                   _SettingsItem(
