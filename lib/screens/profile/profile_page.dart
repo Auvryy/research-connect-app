@@ -109,8 +109,8 @@ class _ProfilePageState extends State<ProfilePage> {
               prefixIcon: Icon(icon, color: color),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               hintText: field == 'school' || field == 'program' 
-                  ? 'Min 5 characters' 
-                  : null,
+                  ? 'Min 2 characters (stored locally)' 
+                  : field == 'email' ? 'Stored locally' : null,
             ),
             keyboardType: field == 'email' ? TextInputType.emailAddress : TextInputType.text,
             validator: (value) {
@@ -120,10 +120,10 @@ class _ProfilePageState extends State<ProfilePage> {
               if (field == 'email' && !value.contains('@')) {
                 return 'Please enter a valid email';
               }
-              // Validate school and program length (backend requirement)
+              // Optional: Validate length for consistency (stored locally)
               if (field == 'school' || field == 'program') {
-                if (value.trim().length < 5) {
-                  return '${title} must be at least 5 characters';
+                if (value.trim().length < 2) {
+                  return '${title} must be at least 2 characters';
                 }
                 if (value.trim().length > 256) {
                   return '${title} must not exceed 256 characters';
@@ -161,127 +161,39 @@ class _ProfilePageState extends State<ProfilePage> {
           builder: (context) => const Center(child: CircularProgressIndicator()),
         );
         
-        // Prepare API call data based on field
-        // Backend supports: school, program (via update_data endpoint)
-        // Email is local only
-        bool apiSuccess = true;
+        // Store all fields locally for now
+        // TODO: Backend sync when both school AND program are set and valid
+        // Currently: Email, School, Program are all LOCAL ONLY
         
         if (field == 'school') {
-          // Check if program is set before making API call
-          if (currentUser!.program == null || currentUser!.program!.trim().isEmpty || currentUser!.program!.trim().length < 5) {
-            // Close loading dialog
-            if (mounted) Navigator.of(context).pop();
-            
-            // Show warning dialog
-            if (mounted) {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Program Required'),
-                  content: const Text('Please set your program first (minimum 5 characters). Both school and program are required to update profile.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-              );
-            }
-            controller.dispose();
-            return;
-          }
-          
-          try {
-            // Backend requires BOTH school and program
-            final response = await AuthAPI.updateUserProfile(
-              school: newValue,
-              program: currentUser!.program!, // Use existing valid program
-            );
-            apiSuccess = response['ok'] == true;
-            if (apiSuccess) {
-              currentUser = currentUser!.copyWith(school: newValue);
-            } else {
-              print('API returned error: ${response['message']}');
-            }
-          } catch (e) {
-            print('Error updating school on backend: $e');
-            apiSuccess = false;
-          }
+          // Save locally only (no backend call to prevent freezing)
+          currentUser = currentUser!.copyWith(school: newValue);
+          print('School updated locally: $newValue');
         } else if (field == 'program') {
-          // Check if school is set before making API call
-          if (currentUser!.school == null || currentUser!.school!.trim().isEmpty || currentUser!.school!.trim().length < 5) {
-            // Close loading dialog
-            if (mounted) Navigator.of(context).pop();
-            
-            // Show warning dialog
-            if (mounted) {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('School Required'),
-                  content: const Text('Please set your school first (minimum 5 characters). Both school and program are required to update profile.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-              );
-            }
-            controller.dispose();
-            return;
-          }
-          
-          try {
-            // Backend requires BOTH school and program
-            final response = await AuthAPI.updateUserProfile(
-              school: currentUser!.school!, // Use existing valid school
-              program: newValue,
-            );
-            apiSuccess = response['ok'] == true;
-            if (apiSuccess) {
-              currentUser = currentUser!.copyWith(program: newValue);
-            } else {
-              print('API returned error: ${response['message']}');
-            }
-          } catch (e) {
-            print('Error updating program on backend: $e');
-            apiSuccess = false;
-          }
+          // Save locally only (no backend call to prevent freezing)
+          currentUser = currentUser!.copyWith(program: newValue);
+          print('Program updated locally: $newValue');
         } else if (field == 'email') {
           // Email is local only (backend doesn't support direct update)
           currentUser = currentUser!.copyWith(email: newValue);
+          print('Email updated locally: $newValue');
         }
         
         // Close loading dialog
         if (mounted) Navigator.of(context).pop();
         
-        if (apiSuccess) {
-          // Save to SharedPreferences
-          await UserInfo.saveUserInfo(currentUser!);
-          setState(() {});
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('$title updated successfully!'),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Failed to update. Please check your input and try again.'),
-                backgroundColor: Colors.red,
-                duration: Duration(seconds: 3),
-              ),
-            );
-          }
+        // Save to SharedPreferences
+        await UserInfo.saveUserInfo(currentUser!);
+        setState(() {});
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$title updated successfully!'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
         }
       }
     }
@@ -476,6 +388,31 @@ class _ProfilePageState extends State<ProfilePage> {
                         fontWeight: FontWeight.bold,
                         color: Colors.grey[700],
                       ),
+                    ),
+                  ),
+                  // Info box about local storage
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Information stored locally on your device',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue[900],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   _SettingsItem(

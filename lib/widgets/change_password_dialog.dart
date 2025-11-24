@@ -21,6 +21,8 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   bool _obscureNew = true;
   bool _obscureConfirm = true;
   int _step = 1; // 1: Enter Email, 2: Enter OTP, 3: Enter New Password
+  bool _canResendOtp = true;
+  int _resendCountdown = 0;
 
   @override
   void dispose() {
@@ -31,8 +33,23 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
     super.dispose();
   }
 
-  Future<void> _sendOtp() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _sendOtp({bool isResend = false}) async {
+    // When resending, skip form validation (we're on step 2 with OTP field required)
+    // Just validate that email is not empty
+    if (!isResend) {
+      if (!_formKey.currentState!.validate()) return;
+    } else {
+      // For resend, just check email is not empty
+      if (_emailController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Email is required'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+    }
 
     setState(() => _isLoading = true);
 
@@ -41,11 +58,28 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
 
       if (mounted) {
         if (response['ok'] == true) {
-          setState(() => _step = 2);
+          // Clear OTP field when resending
+          if (isResend) {
+            _otpController.clear();
+          }
+          
+          setState(() {
+            _step = 2;
+            // Start 60 second cooldown for resend
+            _canResendOtp = false;
+            _resendCountdown = 60;
+          });
+          
+          // Start countdown timer
+          _startResendCountdown();
+          
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('OTP sent to your email! Check your inbox.'),
+            SnackBar(
+              content: Text(isResend 
+                ? 'New OTP sent! Check your email.' 
+                : 'OTP sent to your email! Check your inbox.'),
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
             ),
           );
         } else {
@@ -53,6 +87,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
             SnackBar(
               content: Text(response['message'] ?? 'Failed to send OTP'),
               backgroundColor: AppColors.error,
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -63,12 +98,26 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
           SnackBar(
             content: Text('Error: $e'),
             backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _startResendCountdown() {
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted && _resendCountdown > 0) {
+        setState(() => _resendCountdown--);
+        if (_resendCountdown > 0) {
+          _startResendCountdown();
+        } else {
+          setState(() => _canResendOtp = true);
+        }
+      }
+    });
   }
 
   Future<void> _verifyOtp() async {
@@ -343,13 +392,31 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            TextButton(
-              onPressed: _isLoading ? null : () => setState(() => _step = 1),
-              child: const Text('← Back'),
+            TextButton.icon(
+              onPressed: _isLoading ? null : () {
+                // Clear OTP field and reset resend timer when going back
+                _otpController.clear();
+                setState(() {
+                  _step = 1;
+                  _canResendOtp = true;
+                  _resendCountdown = 0;
+                });
+              },
+              icon: const Icon(Icons.arrow_back, size: 16),
+              label: const Text('Back'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey[700],
+              ),
             ),
-            TextButton(
-              onPressed: _isLoading ? null : _sendOtp,
-              child: const Text('Resend OTP'),
+            TextButton.icon(
+              onPressed: (_isLoading || !_canResendOtp) ? null : () => _sendOtp(isResend: true),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: Text(_canResendOtp 
+                ? 'Resend OTP' 
+                : 'Resend in ${_resendCountdown}s'),
+              style: TextButton.styleFrom(
+                foregroundColor: _canResendOtp ? AppColors.primary : Colors.grey,
+              ),
             ),
           ],
         ),
@@ -361,8 +428,29 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.green.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.green.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: Colors.green[700], size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'OTP verified! Now set your new password.',
+                  style: TextStyle(fontSize: 12, color: Colors.green),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
         const Text(
-          'Enter your new password. It must meet the following requirements:',
+          'Password must meet these requirements:',
           style: TextStyle(fontSize: 13, color: Colors.grey),
         ),
         const SizedBox(height: 8),
@@ -420,6 +508,25 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
             }
             return null;
           },
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            TextButton.icon(
+              onPressed: _isLoading ? null : () {
+                // Clear password fields when going back
+                _newPasswordController.clear();
+                _confirmPasswordController.clear();
+                setState(() => _step = 2);
+              },
+              icon: const Icon(Icons.arrow_back, size: 16),
+              label: const Text('Back to OTP'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey[700],
+              ),
+            ),
+          ],
         ),
       ],
     );
