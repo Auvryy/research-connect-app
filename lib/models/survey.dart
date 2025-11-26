@@ -3,6 +3,7 @@ import 'question_type.dart';
 /// Survey object representing a survey in the system
 class Survey {
   final String id;
+  final int? postId; // Backend database ID
   final String title;
   final String caption; // Short description for feed
   final String description; // Full description for survey takers
@@ -17,6 +18,7 @@ class Survey {
 
   Survey({
     required this.id,
+    this.postId,
     required this.title,
     this.caption = '',
     required this.description,
@@ -55,6 +57,7 @@ class Survey {
   factory Survey.fromJson(Map<String, dynamic> json) {
     return Survey(
       id: json['id'] as String,
+      postId: json['pk_survey_id'] as int?,
       title: json['title'] as String,
       caption: json['caption'] as String? ?? '',
       description: json['description'] as String,

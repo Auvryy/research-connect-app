@@ -294,7 +294,7 @@ class _SurveyCardState extends State<SurveyCard> {
                       '/take-survey',
                       arguments: {
                         'surveyId': survey.id,
-                        'postId': int.tryParse(survey.id) ?? 0,
+                        'postId': survey.postId ?? 0,
                       },
                     );
                   },
