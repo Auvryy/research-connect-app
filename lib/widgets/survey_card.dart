@@ -289,12 +289,20 @@ class _SurveyCardState extends State<SurveyCard> {
                 child: ElevatedButton(
                   onPressed: () {
                     // Navigate to TakeSurveyPage
+                    // Use postId if available, otherwise try to parse id as int
+                    final effectivePostId = survey.postId ?? int.tryParse(survey.id) ?? 0;
+                    if (effectivePostId == 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Cannot take this survey - missing ID')),
+                      );
+                      return;
+                    }
                     Navigator.pushNamed(
                       context,
                       '/take-survey',
                       arguments: {
                         'surveyId': survey.id,
-                        'postId': survey.postId ?? 0,
+                        'postId': effectivePostId,
                       },
                     );
                   },

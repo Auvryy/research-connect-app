@@ -62,7 +62,27 @@ class _HomeFeedState extends State<HomeFeed> {
   }
 
   /// Parse survey from backend JSON format to Survey model
+  /// Backend returns: pk_survey_id, survey_title, survey_content, survey_category,
+  /// survey_target_audience, survey_date_created, user_username, user_profile
   Survey _parseSurveyFromBackend(Map<String, dynamic> json) {
+    // Handle target_audience which can be a list or string
+    String targetAudience = '';
+    if (json['survey_target_audience'] is List) {
+      targetAudience = (json['survey_target_audience'] as List).join(', ');
+    } else if (json['survey_target_audience'] is String) {
+      targetAudience = json['survey_target_audience'] as String;
+    }
+
+    // Handle category/tags
+    List<String> tags = [];
+    if (json['survey_category'] != null) {
+      if (json['survey_category'] is List) {
+        tags = List<String>.from(json['survey_category']);
+      } else if (json['survey_category'] is String) {
+        tags = [json['survey_category'] as String];
+      }
+    }
+
     return Survey(
       id: json['pk_survey_id']?.toString() ?? '',
       postId: json['pk_survey_id'] as int?,
@@ -70,14 +90,22 @@ class _HomeFeedState extends State<HomeFeed> {
       caption: '',
       description: json['survey_content'] ?? '',
       timeToComplete: _parseTimeToComplete(json['survey_approx_time']),
-      tags: List<String>.from(json['survey_tags'] ?? []),
-      targetAudience: (json['survey_target_audience'] as List?)?.join(', ') ?? '',
-      creator: json['survey_creator'] ?? 'Unknown',
-      createdAt: DateTime.tryParse(json['survey_created_at'] ?? '') ?? DateTime.now(),
-      status: json['survey_status'] ?? true,
-      responses: json['survey_responses'] ?? 0,
+      tags: tags,
+      targetAudience: targetAudience,
+      creator: json['user_username'] ?? 'Unknown',
+      createdAt: _parseDateTime(json['survey_date_created']),
+      status: true,
+      responses: 0,
       questions: [], // Questions are loaded separately when taking the survey
     );
+  }
+
+  DateTime _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) return DateTime.now();
+    if (dateValue is String) {
+      return DateTime.tryParse(dateValue) ?? DateTime.now();
+    }
+    return DateTime.now();
   }
 
   int _parseTimeToComplete(String? approxTime) {

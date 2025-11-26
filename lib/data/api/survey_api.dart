@@ -121,13 +121,28 @@ class SurveyAPI {
 
   /// Get all surveys
   /// GET /api/survey/post/get/
+  /// Backend Response Format:
+  /// {
+  ///   "message": [...surveys...],
+  ///   "ok": true,
+  ///   "status": 200
+  /// }
   static Future<List<dynamic>> getAllSurveys() async {
     try {
       final dio = await DioClient.instance;
       final response = await dio.get('/../survey/post/get');
       
+      print('SurveyAPI getAllSurveys: Response status: ${response.statusCode}');
+      print('SurveyAPI getAllSurveys: Response data: ${response.data}');
+      
       if (response.statusCode == 200 && response.data['ok'] == true) {
-        return response.data['data'] as List<dynamic>;
+        // Backend returns surveys in 'message' field, not 'data'
+        final surveys = response.data['message'];
+        if (surveys is List) {
+          return surveys;
+        }
+        print('SurveyAPI getAllSurveys: message is not a List: ${surveys.runtimeType}');
+        return [];
       }
       
       throw Exception(response.data['message'] ?? 'Failed to fetch surveys');
@@ -188,14 +203,29 @@ class SurveyAPI {
         };
       }
       
-      throw Exception(response.data['message'] ?? 'Failed to fetch questionnaire');
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to fetch questionnaire',
+      };
     } on DioException catch (e) {
       print('SurveyAPI: DioException: ${e.message}');
       print('SurveyAPI: Response: ${e.response?.data}');
-      rethrow;
+      
+      String errorMessage = 'Network error';
+      if (e.response?.data is Map) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      
+      return {
+        'ok': false,
+        'message': errorMessage,
+      };
     } catch (e) {
       print('SurveyAPI: Error fetching questionnaire: $e');
-      rethrow;
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
     }
   }
 
@@ -272,10 +302,15 @@ class SurveyAPI {
     try {
       final dio = await DioClient.instance;
       
+      print('SurveyAPI: Checking if answered for survey_id: $surveyId');
+      
       final response = await dio.post(
         '/../survey/questionnaire/is_answered',
         data: {'survey_id': surveyId},
       );
+      
+      print('SurveyAPI checkIfAnswered: Response status: ${response.statusCode}');
+      print('SurveyAPI checkIfAnswered: Response data: ${response.data}');
       
       if (response.statusCode == 200 && response.data['ok'] == true) {
         return {
@@ -296,6 +331,8 @@ class SurveyAPI {
         'message': response.data['message'] ?? 'Failed to check survey status',
       };
     } on DioException catch (e) {
+      print('SurveyAPI checkIfAnswered: DioException: ${e.response?.statusCode} - ${e.response?.data}');
+      
       if (e.response?.statusCode == 409) {
         return {
           'ok': true,
@@ -304,11 +341,22 @@ class SurveyAPI {
         };
       }
       
+      // Handle 404 - survey doesn't exist in backend (e.g., local survey)
+      if (e.response?.statusCode == 404) {
+        print('SurveyAPI checkIfAnswered: Survey $surveyId not found in backend');
+        return {
+          'ok': false,
+          'error': 'not_found',
+          'message': 'Survey not found',
+        };
+      }
+      
       return {
         'ok': false,
         'message': e.response?.data['message'] ?? 'Network error',
       };
     } catch (e) {
+      print('SurveyAPI checkIfAnswered: Error: $e');
       return {
         'ok': false,
         'message': e.toString(),

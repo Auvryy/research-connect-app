@@ -40,6 +40,7 @@ class Survey {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'pk_survey_id': postId,
       'title': title,
       'caption': caption,
       'description': description,
