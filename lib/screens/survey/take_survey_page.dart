@@ -48,8 +48,13 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
       _errorMessage = null;
     });
 
+    print('TakeSurveyPage: Loading survey with postId: ${widget.postId}');
+
     try {
+      // First check if already answered
       final checkResult = await SurveyAPI.checkIfAnswered(widget.postId);
+      print('TakeSurveyPage: Check answered result: $checkResult');
+      
       if (checkResult['alreadyAnswered'] == true) {
         setState(() {
           _alreadyAnswered = true;
@@ -58,10 +63,15 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
         return;
       }
 
+      // Fetch questionnaire
+      print('TakeSurveyPage: Fetching questionnaire...');
       final result = await SurveyAPI.getSurveyQuestionnaire(widget.postId);
+      print('TakeSurveyPage: Questionnaire result ok: ${result['ok']}');
 
       if (result['ok'] == true && result['survey'] != null) {
+        print('TakeSurveyPage: Parsing questionnaire...');
         final questionnaire = SurveyQuestionnaire.fromJson(result['survey']);
+        print('TakeSurveyPage: Questionnaire has ${questionnaire.sections.length} sections');
 
         for (var section in questionnaire.sections) {
           _responses[section.sectionId] = {};
@@ -77,12 +87,14 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
           _isLoading = false;
         });
       } else {
+        print('TakeSurveyPage: Failed - result ok: ${result['ok']}, survey: ${result['survey']}');
         setState(() {
-          _errorMessage = 'Failed to load survey';
+          _errorMessage = result['message'] ?? 'Failed to load survey';
           _isLoading = false;
         });
       }
     } catch (e) {
+      print('TakeSurveyPage: Exception: $e');
       setState(() {
         _errorMessage = 'Failed to load survey: $e';
         _isLoading = false;

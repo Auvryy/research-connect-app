@@ -28,12 +28,21 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
     _loadSurvey();
   }
 
+  String? _errorMessage;
+
   Future<void> _loadSurvey() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
+      print('SurveyTakingScreen: Loading survey with ID: ${widget.surveyId}');
+      
       // Check if already answered
       final checkResult = await SurveyAPI.checkIfAnswered(widget.surveyId);
+      print('SurveyTakingScreen: checkIfAnswered result: $checkResult');
+      
       if (checkResult['alreadyAnswered'] == true) {
         setState(() {
           _alreadyAnswered = true;
@@ -41,9 +50,19 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
         });
         return;
       }
+      
+      // Handle 404 - survey not found
+      if (checkResult['error'] == 'not_found') {
+        setState(() {
+          _errorMessage = 'Survey not found. This survey may have been deleted.';
+          _isLoading = false;
+        });
+        return;
+      }
 
       // Fetch questionnaire
       final result = await SurveyAPI.getSurveyQuestionnaire(widget.surveyId);
+      print('SurveyTakingScreen: getSurveyQuestionnaire result: ${result['ok']}');
       
       if (result['ok'] == true) {
         final questionnaire = SurveyQuestionnaire.fromJson(result['survey']);
@@ -57,15 +76,18 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
           _questionnaire = questionnaire;
           _isLoading = false;
         });
+      } else {
+        setState(() {
+          _errorMessage = result['message'] ?? 'Failed to load survey';
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      print('Error loading survey: $e');
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load survey: $e')),
-        );
-      }
+      print('SurveyTakingScreen: Error loading survey: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load survey: $e';
+      });
     }
   }
 
@@ -259,20 +281,58 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
           iconTheme: const IconThemeData(color: AppColors.primaryText),
         ),
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 64, color: AppColors.error),
-              const SizedBox(height: 16),
-              const Text(
-                'Failed to load survey',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
-              TextButton(
-                onPressed: _loadSurvey,
-                child: const Text('Try Again'),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Failed to Load Survey',
+                  style: TextStyle(
+                    fontSize: 24, 
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryText,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _errorMessage ?? 'An unexpected error occurred. Please try again.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Go Back'),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton(
+                      onPressed: _loadSurvey,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Try Again'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       );
