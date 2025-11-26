@@ -157,6 +157,19 @@ class SurveyAPI {
 
   /// Get survey questionnaire (questions) by post ID
   /// GET /api/survey/post/get/questionnaire/<id>
+  /// 
+  /// Backend Response Format:
+  /// {
+  ///   "message": {
+  ///     "pk_survey_id": 1,
+  ///     "survey_title": "...",
+  ///     "survey_content": "...",
+  ///     "survey_approx_time": "10-15 min",
+  ///     "survey_section": [...]
+  ///   },
+  ///   "ok": true,
+  ///   "status": 200
+  /// }
   static Future<Map<String, dynamic>> getSurveyQuestionnaire(int postId) async {
     try {
       final dio = await DioClient.instance;
@@ -168,10 +181,10 @@ class SurveyAPI {
       print('SurveyAPI: Response data: ${response.data}');
       
       if (response.statusCode == 200 && response.data['ok'] == true) {
+        // The survey data is in response.data['message']
         return {
           'ok': true,
-          'survey': response.data['data']['survey'],
-          'questions': response.data['data']['questions'],
+          'survey': response.data['message'],
         };
       }
       

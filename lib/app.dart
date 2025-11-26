@@ -60,7 +60,7 @@ class MyApp extends StatelessWidget {
           return MaterialPageRoute(
             builder: (context) => AuthGuard(
               child: TakeSurveyPage(
-                surveyId: args['surveyId'] as String,
+                surveyId: args['surveyId'] as String? ?? "",
                 postId: args['postId'] as int,
               ),
             ),

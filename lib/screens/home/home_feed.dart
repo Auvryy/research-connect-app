@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:inquira/widgets/custom_choice_chip.dart';
 import 'package:inquira/widgets/survey_card.dart';
 import 'package:inquira/data/survey_service.dart';
+import 'package:inquira/data/api/survey_api.dart';
 import 'package:inquira/models/survey.dart';
 
 class HomeFeed extends StatefulWidget {
@@ -26,11 +27,29 @@ class _HomeFeedState extends State<HomeFeed> {
     setState(() => _isLoading = true);
     
     try {
-      // Load surveys from local storage only
+      // Try to fetch surveys from backend first
+      List<Survey> backendSurveys = [];
+      try {
+        final backendData = await SurveyAPI.getAllSurveys();
+        backendSurveys = backendData.map((json) => _parseSurveyFromBackend(json)).toList();
+        print('HomeFeed: Loaded ${backendSurveys.length} surveys from backend');
+      } catch (e) {
+        print('HomeFeed: Could not fetch from backend: $e');
+      }
+      
+      // Also load local surveys
       final localSurveys = await SurveyService.getAllSurveys();
       
+      // Combine: backend surveys first, then local surveys (avoiding duplicates)
+      final allSurveys = [...backendSurveys];
+      for (var local in localSurveys) {
+        if (!allSurveys.any((s) => s.id == local.id)) {
+          allSurveys.add(local);
+        }
+      }
+      
       setState(() {
-        _allSurveys = localSurveys;
+        _allSurveys = allSurveys;
         _isLoading = false;
       });
     } catch (e) {
@@ -40,6 +59,32 @@ class _HomeFeedState extends State<HomeFeed> {
         _isLoading = false;
       });
     }
+  }
+
+  /// Parse survey from backend JSON format to Survey model
+  Survey _parseSurveyFromBackend(Map<String, dynamic> json) {
+    return Survey(
+      id: json['pk_survey_id']?.toString() ?? '',
+      postId: json['pk_survey_id'] as int?,
+      title: json['survey_title'] ?? 'Untitled Survey',
+      caption: '',
+      description: json['survey_content'] ?? '',
+      timeToComplete: _parseTimeToComplete(json['survey_approx_time']),
+      tags: List<String>.from(json['survey_tags'] ?? []),
+      targetAudience: (json['survey_target_audience'] as List?)?.join(', ') ?? '',
+      creator: json['survey_creator'] ?? 'Unknown',
+      createdAt: DateTime.tryParse(json['survey_created_at'] ?? '') ?? DateTime.now(),
+      status: json['survey_status'] ?? true,
+      responses: json['survey_responses'] ?? 0,
+      questions: [], // Questions are loaded separately when taking the survey
+    );
+  }
+
+  int _parseTimeToComplete(String? approxTime) {
+    if (approxTime == null) return 5;
+    // Parse strings like "10-15 min" to get the first number
+    final match = RegExp(r'(\d+)').firstMatch(approxTime);
+    return match != null ? int.tryParse(match.group(1)!) ?? 5 : 5;
   }
 
   @override
