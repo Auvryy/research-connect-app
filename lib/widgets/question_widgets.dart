@@ -36,6 +36,76 @@ class QuestionWidget extends StatelessWidget {
             ],
           ),
         ),
+        
+        // Question image if present
+        if (question.imageUrl != null && question.imageUrl!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              question.imageUrl!,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.broken_image, color: Colors.grey),
+                  ),
+                );
+              },
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  height: 150,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+        
+        // Video URL link if present
+        if (question.videoUrl != null && question.videoUrl!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: () {
+              // Could launch URL here
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.play_circle_outline, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Video: ${question.videoUrl}',
+                      style: const TextStyle(color: Colors.blue, fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        
         const SizedBox(height: 12),
         
         // Question input based on type
@@ -70,9 +140,9 @@ class QuestionWidget extends StatelessWidget {
   }
 
   Widget _buildShortText() {
-    return TextField(
+    return TextFormField(
+      initialValue: value as String? ?? '',
       onChanged: onChanged,
-      controller: TextEditingController(text: value ?? ''),
       decoration: InputDecoration(
         hintText: 'Your answer',
         filled: true,
@@ -87,9 +157,9 @@ class QuestionWidget extends StatelessWidget {
   }
 
   Widget _buildLongText() {
-    return TextField(
+    return TextFormField(
+      initialValue: value as String? ?? '',
       onChanged: onChanged,
-      controller: TextEditingController(text: value ?? ''),
       maxLines: 4,
       decoration: InputDecoration(
         hintText: 'Your detailed answer',
@@ -159,8 +229,13 @@ class QuestionWidget extends StatelessWidget {
   }
 
   Widget _buildDropdown() {
+    // Ensure value is in choices list, otherwise set to null
+    final currentValue = (value != null && question.choices.contains(value)) 
+        ? value as String 
+        : null;
+    
     return DropdownButtonFormField<String>(
-      value: value as String?,
+      value: currentValue,
       decoration: InputDecoration(
         filled: true,
         fillColor: AppColors.inputColor,
@@ -230,13 +305,19 @@ class QuestionWidget extends StatelessWidget {
   }
 
   Widget _buildEmailInput() {
-    return TextField(
+    return TextFormField(
+      initialValue: value as String? ?? '',
       onChanged: onChanged,
-      controller: TextEditingController(text: value ?? ''),
       keyboardType: TextInputType.emailAddress,
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         hintText: 'your.email@example.com',
-        border: OutlineInputBorder(),
+        filled: true,
+        fillColor: AppColors.inputColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }

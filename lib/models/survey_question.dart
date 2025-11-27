@@ -88,17 +88,28 @@ class SurveyQuestion {
   });
 
   factory SurveyQuestion.fromJson(Map<String, dynamic> json) {
+    // Handle question_image which can be a Map object or String
+    String? imageUrl;
+    final imageData = json['question_image'];
+    if (imageData != null) {
+      if (imageData is Map) {
+        imageUrl = imageData['img_url'] as String?;
+      } else if (imageData is String) {
+        imageUrl = imageData;
+      }
+    }
+    
     return SurveyQuestion(
-      pkQuestionId: json['pk_question_id'],
-      questionId: json['question_id'],
-      questionNumber: json['question_number'],
-      questionText: json['question_text'],
-      questionType: json['question_type'],
+      pkQuestionId: json['pk_question_id'] ?? 0,
+      questionId: json['question_id'] ?? '',
+      questionNumber: json['question_number'] ?? 0,
+      questionText: json['question_text'] ?? '',
+      questionType: json['question_type'] ?? 'shortText',
       required: json['question_required'] ?? false,
       choices: List<String>.from(json['question_choices'] ?? []),
       minChoice: json['question_minChoice'] ?? 1,
       maxChoice: json['question_maxChoice'] ?? 1,
-      imageUrl: json['question_image'],
+      imageUrl: imageUrl,
       videoUrl: json['question_url'],
     );
   }

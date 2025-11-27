@@ -72,8 +72,9 @@ class _QuestionsPageState extends State<QuestionsPage> {
                       type == QuestionType.dropdown)
                   ? ['Option 1']
                   : [],
-              minChoice: type == QuestionType.checkBox ? 1 : null,
-              maxChoice: type == QuestionType.checkBox ? 1 : null,
+              // Set minChoice/maxChoice for types that require them
+              minChoice: (type == QuestionType.checkBox || type == QuestionType.dropdown) ? 1 : null,
+              maxChoice: (type == QuestionType.checkBox || type == QuestionType.dropdown) ? 1 : null,
               maxRating: type == QuestionType.rating ? 5 : null,
               order: _surveyData.questions.length,
               sectionId: section.id,

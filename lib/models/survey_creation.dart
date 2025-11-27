@@ -61,20 +61,26 @@ class SurveyCreation {
         'description': s.description,
         'order': s.order,
       }).toList(),
-      'data': questions.map((q) => {
-        'questionId': q.id,
-        'title': q.text, // Backend expects 'title' not 'text'
-        'type': q.type.toBackendString(),
-        'required': q.required,
-        'options': q.options,
-        'imageUrl': q.imageUrl,
-        'imageKey': q.imageKey, // "image_{questionId}" - tells backend which FormData field has this question's image
-        'videoUrl': q.videoUrl,
-        'order': q.order,
-        'sectionId': q.sectionId.isEmpty ? 'default' : q.sectionId,
-        'minChoice': q.minChoice,
-        'maxChoice': q.maxChoice,
-        'maxRating': q.maxRating,
+      'data': questions.map((q) {
+        // Determine if this question type requires minChoice/maxChoice
+        final requiresChoiceLimits = q.type == QuestionType.checkBox || q.type == QuestionType.dropdown;
+        
+        return {
+          'questionId': q.id,
+          'title': q.text, // Backend expects 'title' not 'text'
+          'type': q.type.toBackendString(),
+          'required': q.required,
+          'options': q.options,
+          'imageUrl': q.imageUrl,
+          'imageKey': q.imageKey, // "image_{questionId}" - tells backend which FormData field has this question's image
+          'videoUrl': q.videoUrl,
+          'order': q.order,
+          'sectionId': q.sectionId.isEmpty ? 'default' : q.sectionId,
+          // Only include minChoice/maxChoice if required by the type (with defaults)
+          'minChoice': requiresChoiceLimits ? (q.minChoice ?? 1) : q.minChoice,
+          'maxChoice': requiresChoiceLimits ? (q.maxChoice ?? 1) : q.maxChoice,
+          'maxRating': q.maxRating,
+        };
       }).toList(),
     };
   }
