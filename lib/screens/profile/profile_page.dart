@@ -3,9 +3,9 @@ import 'package:inquira/constants/colors.dart';
 import 'package:inquira/widgets/profile_survey.dart';
 import 'package:inquira/widgets/change_password_dialog.dart';
 import 'package:inquira/data/user_info.dart';
-import 'package:inquira/data/survey_service.dart';
 import 'package:inquira/models/survey.dart';
 import 'package:inquira/data/api/auth_api.dart';
+import 'package:inquira/data/api/survey_api.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -22,45 +22,135 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadUserDataFromBackend();
     _loadUserSurveys();
   }
 
-  Future<void> _loadUserData() async {
+  /// Load user data from backend (not just local cache)
+  Future<void> _loadUserDataFromBackend() async {
     try {
-      // Reload user info from SharedPreferences
+      print('ProfilePage: Fetching user data from backend...');
+      final response = await AuthAPI.getUserData();
+      
+      if (response['ok'] == true && response['data'] != null) {
+        final userData = response['data'];
+        final updatedUser = UserInfo(
+          id: userData['id'] as int?,
+          username: userData['username'] as String? ?? currentUser?.username ?? '',
+          profilePicUrl: userData['profile_pic_url'] as String?,
+          role: userData['role'] as String?,
+          email: currentUser?.email, // Keep local email
+          school: userData['school'] as String? ?? currentUser?.school,
+          program: userData['program'] as String? ?? currentUser?.program,
+        );
+        
+        // Save updated user info
+        await UserInfo.saveUserInfo(updatedUser);
+        
+        if (mounted) {
+          setState(() {
+            currentUser = updatedUser;
+          });
+        }
+        print('ProfilePage: User data loaded from backend');
+      } else {
+        // Fallback to local cache
+        final loadedUser = await UserInfo.loadUserInfo();
+        if (loadedUser != null && mounted) {
+          setState(() {
+            currentUser = loadedUser;
+          });
+        }
+      }
+    } catch (e) {
+      print('ProfilePage: Error loading user data from backend: $e');
+      // Fallback to local cache
       final loadedUser = await UserInfo.loadUserInfo();
       if (loadedUser != null && mounted) {
         setState(() {
           currentUser = loadedUser;
         });
       }
-    } catch (e) {
-      print('Error loading user data: $e');
     }
   }
 
+  /// Load user's surveys from backend
   Future<void> _loadUserSurveys() async {
     setState(() => _isLoading = true);
     
     try {
-      // Get current user ID
-      final userId = await SurveyService.getCurrentUserId();
+      // Fetch all surveys from backend and filter by current user
+      print('ProfilePage: Fetching user surveys from backend...');
+      final backendData = await SurveyAPI.getAllSurveys();
       
-      // Load user's surveys from local storage
-      final surveys = await SurveyService.getUserSurveys(userId);
+      // Filter surveys by current user's username
+      final userSurveys = backendData
+          .where((json) => json['user_username'] == currentUser?.username)
+          .map((json) => _parseSurveyFromBackend(json))
+          .toList();
+      
+      print('ProfilePage: Found ${userSurveys.length} surveys for user ${currentUser?.username}');
       
       setState(() {
-        _userSurveys = surveys;
+        _userSurveys = userSurveys;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading user surveys: $e');
+      print('ProfilePage: Error loading user surveys: $e');
       setState(() {
         _userSurveys = [];
         _isLoading = false;
       });
     }
+  }
+
+  /// Parse survey from backend JSON format
+  Survey _parseSurveyFromBackend(Map<String, dynamic> json) {
+    String targetAudience = '';
+    if (json['survey_target_audience'] is List) {
+      targetAudience = (json['survey_target_audience'] as List).join(', ');
+    } else if (json['survey_target_audience'] is String) {
+      targetAudience = json['survey_target_audience'] as String;
+    }
+
+    List<String> tags = [];
+    if (json['survey_category'] != null) {
+      if (json['survey_category'] is List) {
+        tags = List<String>.from(json['survey_category']);
+      } else if (json['survey_category'] is String) {
+        tags = [json['survey_category'] as String];
+      }
+    }
+
+    return Survey(
+      id: json['pk_survey_id']?.toString() ?? '',
+      postId: json['pk_survey_id'] as int?,
+      title: json['survey_title'] ?? 'Untitled Survey',
+      caption: '',
+      description: json['survey_content'] ?? '',
+      timeToComplete: _parseTimeToComplete(json['survey_approx_time']),
+      tags: tags,
+      targetAudience: targetAudience,
+      creator: json['user_username'] ?? 'Unknown',
+      createdAt: _parseDateTime(json['survey_date_created']),
+      status: true,
+      responses: 0,
+      questions: [],
+    );
+  }
+
+  DateTime _parseDateTime(dynamic dateValue) {
+    if (dateValue == null) return DateTime.now();
+    if (dateValue is String) {
+      return DateTime.tryParse(dateValue) ?? DateTime.now();
+    }
+    return DateTime.now();
+  }
+
+  int _parseTimeToComplete(String? approxTime) {
+    if (approxTime == null) return 5;
+    final match = RegExp(r'(\d+)').firstMatch(approxTime);
+    return match != null ? int.tryParse(match.group(1)!) ?? 5 : 5;
   }
 
   Color _getRoleColor(String? role) {
@@ -87,7 +177,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _refreshProfile() async {
     await Future.wait([
-      _loadUserData(),
+      _loadUserDataFromBackend(),
       _loadUserSurveys(),
     ]);
   }
@@ -268,8 +358,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   onPressed: () async {
                     final result = await Navigator.pushNamed(context, '/edit-profile');
                     if (result == true && mounted) {
-                      // Reload user data and page
-                      await _loadUserData();
+                      // Reload user data and page from backend
+                      await _loadUserDataFromBackend();
                       setState(() {});
                     }
                   },

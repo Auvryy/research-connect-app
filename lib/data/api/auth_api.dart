@@ -2,6 +2,48 @@ import 'dio_client.dart';
 import '../user_info.dart';
 
 class AuthAPI {
+  /// Get current user data from backend
+  /// GET /api/auth/login_success
+  static Future<Map<String, dynamic>> getUserData() async {
+    try {
+      print('AuthAPI.getUserData: Fetching user data from backend...');
+      await DioClient.init();
+      
+      final response = await DioClient.get('/login_success');
+      print('AuthAPI.getUserData: Response received: $response');
+      
+      if (response is Map<String, dynamic> && response['ok'] == true) {
+        final messageData = response['message'];
+        
+        // Backend returns nested structure: {message: {user_info: {...}}}
+        if (messageData is Map<String, dynamic>) {
+          if (messageData.containsKey('user_info')) {
+            return {
+              'ok': true,
+              'data': messageData['user_info'],
+            };
+          }
+          // Direct user data
+          return {
+            'ok': true,
+            'data': messageData,
+          };
+        }
+      }
+      
+      return {
+        'ok': false,
+        'message': 'Failed to get user data',
+      };
+    } catch (e) {
+      print('AuthAPI.getUserData: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
   /// Validates registration input against backend requirements
   static Map<String, String?> validateRegistration(String username, String password) {
     Map<String, String?> errors = {};

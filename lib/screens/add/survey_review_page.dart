@@ -4,7 +4,6 @@ import 'package:inquira/constants/colors.dart';
 import 'package:inquira/models/question_type.dart';
 import 'package:inquira/models/survey_creation.dart';
 import 'package:inquira/widgets/primary_button.dart';
-import 'package:inquira/data/survey_service.dart';
 import 'package:inquira/data/draft_service.dart';
 import 'package:inquira/data/api/survey_api.dart';
 
@@ -233,10 +232,8 @@ class SurveyReviewPage extends StatelessWidget {
         // Success - clear draft
         await DraftService.clearDraft();
         
-        // Also save locally for offline access
-        final userId = await SurveyService.getCurrentUserId();
-        final survey = SurveyService.surveyCreationToSurvey(surveyData, userId);
-        await SurveyService.saveSurvey(survey);
+        // NOTE: Don't save locally - backend is the source of truth
+        // This was causing duplicate surveys to appear
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

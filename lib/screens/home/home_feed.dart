@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:inquira/widgets/custom_choice_chip.dart';
 import 'package:inquira/widgets/survey_card.dart';
-import 'package:inquira/data/survey_service.dart';
 import 'package:inquira/data/api/survey_api.dart';
 import 'package:inquira/models/survey.dart';
+import 'package:inquira/constants/colors.dart';
 
 class HomeFeed extends StatefulWidget {
   const HomeFeed({super.key});
@@ -16,6 +16,7 @@ class _HomeFeedState extends State<HomeFeed> {
   String selectedFilter = "All";
   List<Survey> _allSurveys = [];
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -24,39 +25,29 @@ class _HomeFeedState extends State<HomeFeed> {
   }
 
   Future<void> _loadSurveys() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     
     try {
-      // Try to fetch surveys from backend first
-      List<Survey> backendSurveys = [];
-      try {
-        final backendData = await SurveyAPI.getAllSurveys();
-        backendSurveys = backendData.map((json) => _parseSurveyFromBackend(json)).toList();
-        print('HomeFeed: Loaded ${backendSurveys.length} surveys from backend');
-      } catch (e) {
-        print('HomeFeed: Could not fetch from backend: $e');
-      }
+      // Fetch surveys from backend ONLY - no local storage
+      print('HomeFeed: Fetching surveys from backend...');
+      final backendData = await SurveyAPI.getAllSurveys();
       
-      // Also load local surveys
-      final localSurveys = await SurveyService.getAllSurveys();
-      
-      // Combine: backend surveys first, then local surveys (avoiding duplicates)
-      final allSurveys = [...backendSurveys];
-      for (var local in localSurveys) {
-        if (!allSurveys.any((s) => s.id == local.id)) {
-          allSurveys.add(local);
-        }
-      }
+      final surveys = backendData.map((json) => _parseSurveyFromBackend(json)).toList();
+      print('HomeFeed: Loaded ${surveys.length} surveys from backend');
       
       setState(() {
-        _allSurveys = allSurveys;
+        _allSurveys = surveys;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading surveys: $e');
+      print('HomeFeed: Error fetching surveys: $e');
       setState(() {
         _allSurveys = [];
         _isLoading = false;
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
       });
     }
   }
@@ -174,39 +165,93 @@ class _HomeFeedState extends State<HomeFeed> {
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : filteredSurveys.isEmpty
+              : _errorMessage != null
                   ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.poll_outlined,
-                            size: 80,
-                            color: Colors.grey[400],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No surveys yet',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[600],
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.cloud_off,
+                              size: 64,
+                              color: Colors.grey[400],
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Create your first survey!',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[500],
+                            const SizedBox(height: 16),
+                            Text(
+                              'Failed to load surveys',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[700],
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                            Text(
+                              _errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              onPressed: _loadSurveys,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     )
-                  : RefreshIndicator(
-                      onRefresh: _loadSurveys,
-                      child: ListView.builder(
+                  : filteredSurveys.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.poll_outlined,
+                                size: 80,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No surveys yet',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Create your first survey!',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                onPressed: _loadSurveys,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Refresh'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadSurveys,
+                          child: ListView.builder(
                         itemCount: filteredSurveys.length,
                         itemBuilder: (context, index) {
                           final survey = filteredSurveys[index];

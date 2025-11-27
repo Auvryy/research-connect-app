@@ -76,8 +76,13 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
         for (var section in questionnaire.sections) {
           _responses[section.sectionId] = {};
           for (var question in section.questions) {
+            // Initialize ALL questions with appropriate empty values
+            // Backend iterates all questions, so we must have a value for each
             if (question.questionType == 'checkBox') {
               _responses[section.sectionId]![question.questionId] = <String>[];
+            } else {
+              // Initialize other types with empty string
+              _responses[section.sectionId]![question.questionId] = '';
             }
           }
         }
@@ -159,9 +164,28 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     setState(() => _isSubmitting = true);
 
     try {
+      // Clean up responses before sending - ensure all values are properly formatted
+      // Backend iterates ALL questions, so we must send valid values for each
+      final cleanedResponses = <String, Map<String, dynamic>>{};
+      for (final sectionEntry in _responses.entries) {
+        cleanedResponses[sectionEntry.key] = {};
+        for (final questionEntry in sectionEntry.value.entries) {
+          final value = questionEntry.value;
+          // Convert checkbox lists to proper format (send empty list [] not null)
+          if (value is List) {
+            cleanedResponses[sectionEntry.key]![questionEntry.key] = List<String>.from(value);
+          } else if (value != null) {
+            cleanedResponses[sectionEntry.key]![questionEntry.key] = value;
+          } else {
+            // Send empty string for null text values to avoid backend crashes
+            cleanedResponses[sectionEntry.key]![questionEntry.key] = '';
+          }
+        }
+      }
+
       final result = await SurveyAPI.submitSurveyResponse(
         widget.postId,
-        {'responses': _responses},
+        {'responses': cleanedResponses},
       );
 
       if (result['ok'] == true) {
@@ -593,8 +617,9 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   }
 
   Widget _buildShortTextInput(String sectionId, SurveyQuestion question, dynamic value) {
+    final textValue = value?.toString() ?? '';
     return TextField(
-      controller: TextEditingController(text: value as String? ?? '')..selection = TextSelection.collapsed(offset: (value as String? ?? '').length),
+      controller: TextEditingController(text: textValue)..selection = TextSelection.collapsed(offset: textValue.length),
       onChanged: (text) => _updateResponse(sectionId, question.questionId, text),
       decoration: InputDecoration(
         hintText: 'Type your answer here...',
@@ -609,8 +634,9 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   }
 
   Widget _buildLongTextInput(String sectionId, SurveyQuestion question, dynamic value) {
+    final textValue = value?.toString() ?? '';
     return TextField(
-      controller: TextEditingController(text: value as String? ?? '')..selection = TextSelection.collapsed(offset: (value as String? ?? '').length),
+      controller: TextEditingController(text: textValue)..selection = TextSelection.collapsed(offset: textValue.length),
       onChanged: (text) => _updateResponse(sectionId, question.questionId, text),
       maxLines: 5,
       decoration: InputDecoration(
@@ -781,8 +807,9 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   }
 
   Widget _buildEmailInput(String sectionId, SurveyQuestion question, dynamic value) {
+    final textValue = value?.toString() ?? '';
     return TextField(
-      controller: TextEditingController(text: value as String? ?? '')..selection = TextSelection.collapsed(offset: (value as String? ?? '').length),
+      controller: TextEditingController(text: textValue)..selection = TextSelection.collapsed(offset: textValue.length),
       onChanged: (text) => _updateResponse(sectionId, question.questionId, text),
       keyboardType: TextInputType.emailAddress,
       decoration: InputDecoration(
