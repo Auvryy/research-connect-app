@@ -77,7 +77,8 @@ extension QuestionTypeExtension on QuestionType {
   }
   
   /// Check if question type requires minChoice/maxChoice
+  /// Backend CHOICES_MAX_MIN_TYPE_MOBILE = ("checkBox", "dropdown")
   bool requiresMinMaxChoice() {
-    return this == QuestionType.checkBox;
+    return this == QuestionType.checkBox || this == QuestionType.dropdown;
   }
 }
