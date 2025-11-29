@@ -133,6 +133,22 @@ class _SurveyCardState extends State<SurveyCard> {
                       ],
                     ),
                   ),
+                  // Status Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: survey.status ? Colors.green.shade100 : Colors.red.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      survey.status ? 'Open' : 'Closed',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: survey.status ? Colors.green.shade800 : Colors.red.shade800,
+                      ),
+                    ),
+                  ),
                 ],
               ),
               

@@ -111,7 +111,7 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
       return;
     }
 
-    // Validate caption (4-40 words, max 512 characters)
+    // Validate caption (5-400 words, max 5000 characters) - backend post content validation
     if (caption.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a caption')),
@@ -119,46 +119,50 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
       return;
     }
     final captionWords = caption.split(RegExp(r'\s+'));
-    if (captionWords.length < 4) {
+    if (captionWords.length < 5) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Caption must be at least 4 words')),
+        const SnackBar(content: Text('Caption must be at least 5 words')),
       );
       return;
     }
-    if (captionWords.length > 40) {
+    if (captionWords.length > 400) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Caption must not exceed 40 words')),
+        const SnackBar(content: Text('Caption must not exceed 400 words')),
       );
       return;
     }
-    if (caption.length > 512) {
+    if (caption.length > 5000) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Caption must not exceed 512 characters')),
+        const SnackBar(content: Text('Caption must not exceed 5000 characters')),
       );
       return;
     }
 
-    // Validate description if provided (20-100 words, max 5000 characters)
-    if (description.isNotEmpty) {
-      final descWords = description.split(RegExp(r'\s+'));
-      if (descWords.length < 20) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Description must be at least 20 words')),
-        );
-        return;
-      }
-      if (descWords.length > 100) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Description must not exceed 100 words')),
-        );
-        return;
-      }
-      if (description.length > 5000) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Description must not exceed 5000 characters')),
-        );
-        return;
-      }
+    // Validate description (5-100 words, max 5000 characters) - backend survey description validation
+    if (description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a description')),
+      );
+      return;
+    }
+    final descWords = description.split(RegExp(r'\s+'));
+    if (descWords.length < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Description must be at least 5 words')),
+      );
+      return;
+    }
+    if (descWords.length > 100) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Description must not exceed 100 words')),
+      );
+      return;
+    }
+    if (description.length > 5000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Description must not exceed 5000 characters')),
+      );
+      return;
     }
 
     if (_selectedTags.isEmpty) {
@@ -276,7 +280,7 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
             Padding(
               padding: const EdgeInsets.only(left: 4, top: 4),
               child: Text(
-                '${_captionController.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length}/40 words, ${_captionController.text.length}/512 chars',
+                '${_captionController.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length}/400 words, ${_captionController.text.length}/5000 chars (min 5 words)',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[600],
@@ -286,13 +290,13 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
             const SizedBox(height: 16),
             CustomTextField(
               controller: _descriptionController,
-              label: 'Detailed Description (Optional)',
+              label: 'Detailed Description',
               maxLines: 5,
             ),
             Padding(
               padding: const EdgeInsets.only(left: 4, top: 4),
               child: Text(
-                '${_descriptionController.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length}/100 words, ${_descriptionController.text.length}/5000 chars',
+                '${_descriptionController.text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length}/100 words, ${_descriptionController.text.length}/5000 chars (min 5 words)',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[600],
