@@ -369,6 +369,57 @@ class SurveyAPI {
     }
   }
 
+  /// Archive a survey (removes from public feed)
+  /// PATCH /api/survey/post/archive
+  /// 
+  /// Backend expects: {"id": postId}
+  static Future<Map<String, dynamic>> archiveSurvey(int postId) async {
+    try {
+      final dio = await DioClient.instance;
+      
+      print('SurveyAPI: Archiving survey ID: $postId');
+      
+      final response = await dio.patch(
+        '/../survey/post/archive',
+        data: {'id': postId},
+      );
+      
+      print('SurveyAPI archiveSurvey: Response status: ${response.statusCode}');
+      print('SurveyAPI archiveSurvey: Response data: ${response.data}');
+      
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        return {
+          'ok': true,
+          'message': response.data['message'] ?? 'Survey archived successfully',
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to archive survey',
+      };
+    } on DioException catch (e) {
+      print('SurveyAPI archiveSurvey: DioException: ${e.message}');
+      print('SurveyAPI archiveSurvey: Response: ${e.response?.data}');
+      
+      String errorMessage = 'Failed to archive survey';
+      if (e.response?.data is Map) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      
+      return {
+        'ok': false,
+        'message': errorMessage,
+      };
+    } catch (e) {
+      print('SurveyAPI archiveSurvey: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
   /// Check if user has already answered a survey
   /// POST /api/survey/questionnaire/is_answered
   static Future<Map<String, dynamic>> checkIfAnswered(int surveyId) async {

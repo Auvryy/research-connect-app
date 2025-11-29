@@ -226,10 +226,9 @@ class AuthAPI {
   }
 
   /// Update user profile information (school, program)
-  /// Backend endpoint: PATCH /api/auth/update_data
-  /// Backend requires: username (unchanged), school, program
+  /// Backend endpoint: PATCH /api/user/update_data
+  /// Backend accepts: username, school, program (all optional, max 256 chars each)
   static Future<Map<String, dynamic>> updateUserProfile({
-    String? email,
     String? school,
     String? program,
   }) async {
@@ -237,7 +236,7 @@ class AuthAPI {
       print('AuthAPI.updateUserProfile: Starting profile update...');
       await DioClient.init();
 
-      // Get current user info to fill in required fields
+      // Get current user info
       final currentUserData = await UserInfo.loadUserInfo();
       if (currentUserData == null) {
         return {
@@ -247,44 +246,19 @@ class AuthAPI {
         };
       }
 
-      // Backend requires all three fields: username, school, program
+      // Build data - backend accepts empty strings
       final Map<String, dynamic> data = {
         'username': currentUserData.username,
         'school': school ?? currentUserData.school ?? '',
         'program': program ?? currentUserData.program ?? '',
       };
 
-      // Validate required fields
-      if (data['school'].toString().isEmpty || data['program'].toString().isEmpty) {
-        return {
-          'status': 400,
-          'ok': false,
-          'message': 'School and program are required',
-        };
-      }
-
-      // Validate school (min 5, max 256 characters)
-      if (data['school'].toString().length < 5) {
-        return {
-          'status': 400,
-          'ok': false,
-          'message': 'School must be at least 5 characters',
-        };
-      }
+      // Only validate max length (backend requirement: max 256 chars)
       if (data['school'].toString().length > 256) {
         return {
           'status': 400,
           'ok': false,
           'message': 'School must not exceed 256 characters',
-        };
-      }
-
-      // Validate program (min 5, max 256 characters)
-      if (data['program'].toString().length < 5) {
-        return {
-          'status': 400,
-          'ok': false,
-          'message': 'Program must be at least 5 characters',
         };
       }
       if (data['program'].toString().length > 256) {
@@ -297,7 +271,8 @@ class AuthAPI {
 
       print('AuthAPI.updateUserProfile: Sending data: $data');
 
-      final response = await DioClient.patch('/update_data', data: data);
+      // Backend endpoint is /api/user/update_data (use /../user path)
+      final response = await DioClient.patch('/../user/update_data', data: data);
 
       print('AuthAPI.updateUserProfile: Response received: $response');
 
@@ -305,9 +280,8 @@ class AuthAPI {
         // If update is successful, update local user data
         if (response['ok'] == true) {
           final updatedUser = currentUserData.copyWith(
-            email: email,
-            school: school,
-            program: program,
+            school: school ?? currentUserData.school,
+            program: program ?? currentUserData.program,
           );
           await UserInfo.saveUserInfo(updatedUser);
           currentUser = updatedUser;

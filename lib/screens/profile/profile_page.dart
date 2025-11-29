@@ -6,6 +6,7 @@ import 'package:inquira/data/user_info.dart';
 import 'package:inquira/models/survey.dart';
 import 'package:inquira/data/api/auth_api.dart';
 import 'package:inquira/data/api/survey_api.dart';
+import 'package:inquira/data/api/otp_api.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -105,6 +106,10 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   /// Parse survey from backend JSON format
+  /// Backend response from get_post():
+  /// - survey_content = Posts.content (this is the caption/post content)
+  /// - survey_title, survey_category, survey_target_audience, etc.
+  /// - Note: survey description is not returned in list view, only in questionnaire endpoint
   Survey _parseSurveyFromBackend(Map<String, dynamic> json) {
     String targetAudience = '';
     if (json['survey_target_audience'] is List) {
@@ -122,18 +127,29 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
 
+    // Backend: survey_content from get_post() is actually Posts.content (caption)
+    // The actual survey description is only available via questionnaire endpoint
+    final caption = json['survey_content'] as String? ?? '';
+    
+    // Parse status from backend if available (defaults to 'open')
+    // Backend stores status as 'open' or 'closed' string
+    bool isOpen = true;
+    if (json['status'] != null) {
+      isOpen = json['status'].toString().toLowerCase() == 'open';
+    }
+
     return Survey(
       id: json['pk_survey_id']?.toString() ?? '',
       postId: json['pk_survey_id'] as int?,
       title: json['survey_title'] ?? 'Untitled Survey',
-      caption: '',
-      description: json['survey_content'] ?? '',
-      timeToComplete: _parseTimeToComplete(json['survey_approx_time']),
+      caption: caption, // Caption is the post content
+      description: '', // Description only available from questionnaire endpoint
+      timeToComplete: _parseTimeToComplete(json['approx_time']),
       tags: tags,
       targetAudience: targetAudience,
       creator: json['user_username'] ?? 'Unknown',
       createdAt: _parseDateTime(json['survey_date_created']),
-      status: true,
+      status: isOpen,
       responses: 0,
       questions: [],
     );
@@ -183,155 +199,305 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _showEditDialog(String title, String field, String? currentValue, IconData icon, Color color) async {
-    final controller = TextEditingController(text: currentValue ?? '');
+    final controller = TextEditingController(
+      text: (currentValue == null || currentValue.isEmpty || currentValue == 'N/A') ? '' : currentValue,
+    );
     final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
     
-    final result = await showDialog<bool>(
+    await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Edit $title'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            decoration: InputDecoration(
-              labelText: title,
-              prefixIcon: Icon(icon, color: color),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              hintText: field == 'school' || field == 'program' 
-                  ? 'Min 2 characters' 
-                  : field == 'email' ? 'Stored locally' : null,
-            ),
-            keyboardType: field == 'email' ? TextInputType.emailAddress : TextInputType.text,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'This field cannot be empty';
-              }
-              if (field == 'email' && !value.contains('@')) {
-                return 'Please enter a valid email';
-              }
-              // Validate length for backend fields
-              if (field == 'school' || field == 'program') {
-                if (value.trim().length < 2) {
-                  return '${title} must be at least 2 characters';
-                }
-                if (value.trim().length > 256) {
-                  return '${title} must not exceed 256 characters';
-                }
-              }
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(context, true);
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: color),
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Edit $title'),
+              content: Form(
+                key: formKey,
+                child: TextFormField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    labelText: title,
+                    prefixIcon: Icon(icon, color: color),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    hintText: 'Enter $title (leave empty for N/A)',
+                  ),
+                  keyboardType: TextInputType.text,
+                  enabled: !isLoading,
+                  validator: (value) {
+                    if (value != null && value.trim().length > 256) {
+                      return '$title must not exceed 256 characters';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isLoading ? null : () async {
+                    if (!formKey.currentState!.validate()) return;
+                    
+                    setDialogState(() => isLoading = true);
+                    
+                    final newValue = controller.text.trim();
+                    final valueToSave = newValue.isEmpty ? 'N/A' : newValue;
+                    
+                    try {
+                      final response = await AuthAPI.updateUserProfile(
+                        school: field == 'school' ? valueToSave : null,
+                        program: field == 'program' ? valueToSave : null,
+                      );
+                      
+                      if (response['ok'] == true) {
+                        if (field == 'school') {
+                          currentUser = currentUser?.copyWith(school: valueToSave);
+                        } else if (field == 'program') {
+                          currentUser = currentUser?.copyWith(program: valueToSave);
+                        }
+                        if (currentUser != null) {
+                          await UserInfo.saveUserInfo(currentUser!);
+                        }
+                        
+                        if (mounted) {
+                          Navigator.pop(dialogContext);
+                          setState(() {});
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(
+                              content: Text('$title updated successfully!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } else {
+                        setDialogState(() => isLoading = false);
+                        if (mounted) {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(
+                              content: Text(response['message'] ?? 'Failed to update $title'),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      setDialogState(() => isLoading = false);
+                      if (mounted) {
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error: $e'),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: color),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('Save', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
+  }
+
+  /// Show email setup dialog with OTP verification flow
+  /// Flow: Enter email -> Send OTP -> Enter OTP -> Email is set
+  Future<void> _showEmailSetupDialog() async {
+    final emailController = TextEditingController(text: currentUser?.email ?? '');
+    final otpController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isOtpSent = false;
+    bool isLoading = false;
+    String? errorMessage;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(isOtpSent ? 'Verify OTP' : 'Set Email'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isOtpSent) ...[
+                      const Text(
+                        'Enter your email address. We will send you an OTP to verify.',
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: emailController,
+                        decoration: InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.email, color: AppColors.primary),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          hintText: 'Enter your email',
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        enabled: !isLoading,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Email is required';
+                          }
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                    ] else ...[
+                      Text(
+                        'OTP sent to ${emailController.text}',
+                        style: const TextStyle(fontSize: 13, color: Colors.green),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: otpController,
+                        decoration: InputDecoration(
+                          labelText: 'OTP Code',
+                          prefixIcon: Icon(Icons.lock_clock, color: AppColors.primary),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          hintText: 'Enter 6-digit OTP',
+                        ),
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        enabled: !isLoading,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'OTP is required';
+                          }
+                          if (value.trim().length != 6) {
+                            return 'OTP must be 6 digits';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorMessage!,
+                        style: TextStyle(fontSize: 12, color: AppColors.error),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading ? null : () {
+                    if (isOtpSent) {
+                      // Go back to email entry
+                      setDialogState(() {
+                        isOtpSent = false;
+                        otpController.clear();
+                        errorMessage = null;
+                      });
+                    } else {
+                      Navigator.pop(dialogContext);
+                    }
+                  },
+                  child: Text(isOtpSent ? 'Back' : 'Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isLoading ? null : () async {
+                    if (!formKey.currentState!.validate()) return;
+                    
+                    setDialogState(() {
+                      isLoading = true;
+                      errorMessage = null;
+                    });
+
+                    try {
+                      if (!isOtpSent) {
+                        // Step 1: Send OTP
+                        final response = await OtpAPI.sendOtp(emailController.text.trim());
+                        
+                        if (response['ok'] == true) {
+                          setDialogState(() {
+                            isOtpSent = true;
+                            isLoading = false;
+                          });
+                        } else {
+                          setDialogState(() {
+                            errorMessage = response['message'] ?? 'Failed to send OTP';
+                            isLoading = false;
+                          });
+                        }
+                      } else {
+                        // Step 2: Verify OTP and set email
+                        final response = await OtpAPI.setEmailWithOtp(otpController.text.trim());
+                        
+                        if (response['ok'] == true) {
+                          // Update local user info with the new email
+                          if (currentUser != null) {
+                            currentUser = currentUser!.copyWith(email: emailController.text.trim());
+                            await UserInfo.saveUserInfo(currentUser!);
+                          }
+                          
+                          if (mounted) {
+                            Navigator.pop(dialogContext);
+                            setState(() {}); // Refresh UI
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Email set successfully!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } else {
+                          setDialogState(() {
+                            errorMessage = response['message'] ?? 'Failed to verify OTP';
+                            isLoading = false;
+                          });
+                        }
+                      }
+                    } catch (e) {
+                      setDialogState(() {
+                        errorMessage = 'Error: $e';
+                        isLoading = false;
+                      });
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                  child: isLoading 
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : Text(
+                        isOtpSent ? 'Verify & Set Email' : 'Send OTP',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
     
-    if (result == true && mounted) {
-      final newValue = controller.text.trim();
-      if (currentUser != null) {
-        // Show loading
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(child: CircularProgressIndicator()),
-        );
-        
-        try {
-          if (field == 'school' || field == 'program') {
-            // Update via backend API
-            final response = await AuthAPI.updateUserProfile(
-              school: field == 'school' ? newValue : currentUser?.school,
-              program: field == 'program' ? newValue : currentUser?.program,
-            );
-            
-            // Close loading dialog
-            if (mounted) Navigator.of(context).pop();
-            
-            if (response['ok'] == true) {
-              // Update local state
-              if (field == 'school') {
-                currentUser = currentUser!.copyWith(school: newValue);
-              } else if (field == 'program') {
-                currentUser = currentUser!.copyWith(program: newValue);
-              }
-              
-              // Save to SharedPreferences
-              await UserInfo.saveUserInfo(currentUser!);
-              setState(() {});
-              
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('$title updated successfully!'),
-                    backgroundColor: Colors.green,
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              }
-            } else {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(response['message'] ?? 'Failed to update $title'),
-                    backgroundColor: AppColors.error,
-                    duration: const Duration(seconds: 3),
-                  ),
-                );
-              }
-            }
-          } else if (field == 'email') {
-            // Email is local only (backend doesn't support direct email update)
-            currentUser = currentUser!.copyWith(email: newValue);
-            
-            // Close loading dialog
-            if (mounted) Navigator.of(context).pop();
-            
-            // Save to SharedPreferences
-            await UserInfo.saveUserInfo(currentUser!);
-            setState(() {});
-            
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('$title updated locally!'),
-                  backgroundColor: Colors.green,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            }
-          }
-        } catch (e) {
-          // Close loading dialog
-          if (mounted) Navigator.of(context).pop();
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error updating $title: $e'),
-                backgroundColor: AppColors.error,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          }
-        }
-      }
-    }
-    controller.dispose();
+    emailController.dispose();
+    otpController.dispose();
   }
 
   @override
@@ -527,7 +693,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
-                  // Info box about storage
+                  // Info box about server sync
                   Container(
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.only(bottom: 16),
@@ -542,7 +708,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'School and Program are synced with the server',
+                            'Your information is synced with the server',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.green[900],
@@ -553,33 +719,30 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   _SettingsItem(
-                    icon: Icons.email,
-                    label: currentUser?.email != null && currentUser!.email!.isNotEmpty
-                        ? currentUser!.email!
-                        : "Email (Not set)",
-                    onTap: () => _showEditDialog('Email', 'email', currentUser?.email, Icons.email, Colors.purple),
-                    iconColor: Colors.purple,
-                    subtitle: 'Stored locally',
-                  ),
-                  const SizedBox(height: 12),
-                  _SettingsItem(
                     icon: Icons.school,
                     label: currentUser?.school != null && currentUser!.school!.isNotEmpty
                         ? currentUser!.school!
-                        : "School (Not set)",
+                        : "N/A",
                     onTap: () => _showEditDialog('School', 'school', currentUser?.school, Icons.school, Colors.red),
                     iconColor: Colors.red,
-                    subtitle: 'Synced with server',
                   ),
                   const SizedBox(height: 12),
                   _SettingsItem(
                     icon: Icons.book,
                     label: currentUser?.program != null && currentUser!.program!.isNotEmpty
                         ? currentUser!.program!
-                        : "Program (Not set)",
+                        : "N/A",
                     onTap: () => _showEditDialog('Program', 'program', currentUser?.program, Icons.book, Colors.cyan),
                     iconColor: Colors.cyan,
-                    subtitle: 'Synced with server',
+                  ),
+                  const SizedBox(height: 12),
+                  _SettingsItem(
+                    icon: Icons.email,
+                    label: currentUser?.email != null && currentUser!.email!.isNotEmpty
+                        ? currentUser!.email!
+                        : "N/A",
+                    onTap: _showEmailSetupDialog,
+                    iconColor: Colors.orange,
                   ),
                   const SizedBox(height: 20),
                   // Account Actions Header

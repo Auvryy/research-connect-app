@@ -54,7 +54,8 @@ class _HomeFeedState extends State<HomeFeed> {
 
   /// Parse survey from backend JSON format to Survey model
   /// Backend returns: pk_survey_id, survey_title, survey_content, survey_category,
-  /// survey_target_audience, survey_date_created, user_username, user_profile
+  /// survey_target_audience, survey_date_created, user_username, user_profile, approx_time
+  /// Note: survey_content from get_post() is actually Posts.content (the caption)
   Survey _parseSurveyFromBackend(Map<String, dynamic> json) {
     // Handle target_audience which can be a list or string
     String targetAudience = '';
@@ -74,18 +75,28 @@ class _HomeFeedState extends State<HomeFeed> {
       }
     }
 
+    // Backend: survey_content from get_post() is actually Posts.content (caption)
+    final caption = json['survey_content'] as String? ?? '';
+    
+    // Parse status from backend if available (defaults to 'open')
+    // Backend stores status as 'open' or 'closed' string
+    bool isOpen = true;
+    if (json['status'] != null) {
+      isOpen = json['status'].toString().toLowerCase() == 'open';
+    }
+
     return Survey(
       id: json['pk_survey_id']?.toString() ?? '',
       postId: json['pk_survey_id'] as int?,
       title: json['survey_title'] ?? 'Untitled Survey',
-      caption: '',
-      description: json['survey_content'] ?? '',
-      timeToComplete: _parseTimeToComplete(json['survey_approx_time']),
+      caption: caption, // Caption is the post content
+      description: '', // Description only available from questionnaire endpoint
+      timeToComplete: _parseTimeToComplete(json['approx_time']),
       tags: tags,
       targetAudience: targetAudience,
       creator: json['user_username'] ?? 'Unknown',
       createdAt: _parseDateTime(json['survey_date_created']),
-      status: true,
+      status: isOpen,
       responses: 0,
       questions: [], // Questions are loaded separately when taking the survey
     );

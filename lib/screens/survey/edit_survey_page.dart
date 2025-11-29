@@ -19,27 +19,79 @@ class _EditSurveyPageState extends State<EditSurveyPage> {
   late TextEditingController _descriptionController;
   late String _status;
   bool _isLoading = false;
+  bool _isLoadingData = true;
   bool _hasChanges = false;
+  String? _loadError;
+
+  // Store original values for change detection
+  String _originalTitle = '';
+  String _originalCaption = '';
+  String _originalDescription = '';
+  String _originalStatus = 'open';
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.survey.title);
     _captionController = TextEditingController(text: widget.survey.caption);
-    _descriptionController = TextEditingController(text: widget.survey.description);
+    _descriptionController = TextEditingController();
     _status = widget.survey.status ? 'open' : 'closed';
+    
+    // Store original values
+    _originalTitle = widget.survey.title;
+    _originalCaption = widget.survey.caption;
+    _originalStatus = widget.survey.status ? 'open' : 'closed';
 
     // Listen for changes
     _titleController.addListener(_onFieldChanged);
     _captionController.addListener(_onFieldChanged);
     _descriptionController.addListener(_onFieldChanged);
+    
+    // Load full survey data including description from questionnaire endpoint
+    _loadSurveyDescription();
+  }
+
+  /// Fetch the full survey description from the questionnaire endpoint
+  Future<void> _loadSurveyDescription() async {
+    if (widget.survey.postId == null) {
+      setState(() {
+        _isLoadingData = false;
+        _loadError = 'Survey ID is missing';
+      });
+      return;
+    }
+
+    try {
+      final response = await SurveyAPI.getSurveyQuestionnaire(widget.survey.postId!);
+      
+      if (response['ok'] == true && response['survey'] != null) {
+        final surveyData = response['survey'] as Map<String, dynamic>;
+        final description = surveyData['survey_content'] as String? ?? '';
+        
+        setState(() {
+          _descriptionController.text = description;
+          _originalDescription = description;
+          _isLoadingData = false;
+        });
+      } else {
+        setState(() {
+          _isLoadingData = false;
+          _loadError = response['message'] ?? 'Failed to load survey details';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingData = false;
+        _loadError = 'Error loading survey: $e';
+      });
+    }
   }
 
   void _onFieldChanged() {
-    final hasChanges = _titleController.text != widget.survey.title ||
-        _captionController.text != widget.survey.caption ||
-        _descriptionController.text != widget.survey.description ||
-        _status != (widget.survey.status ? 'open' : 'closed');
+    final hasChanges = _titleController.text != _originalTitle ||
+        _captionController.text != _originalCaption ||
+        _descriptionController.text != _originalDescription ||
+        _status != _originalStatus;
     
     if (hasChanges != _hasChanges) {
       setState(() {
@@ -133,6 +185,71 @@ class _EditSurveyPageState extends State<EditSurveyPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading state while fetching survey description
+    if (_isLoadingData) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text('Edit Survey'),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading survey details...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Show error state if loading failed
+    if (_loadError != null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text('Edit Survey'),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: AppColors.error),
+                const SizedBox(height: 16),
+                Text(
+                  'Failed to load survey',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _loadError!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Go Back'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
@@ -205,9 +322,17 @@ class _EditSurveyPageState extends State<EditSurveyPage> {
                   controller: _titleController,
                   decoration: _buildInputDecoration(
                     hintText: 'Enter survey title',
-                    helperText: 'Min 5, Max 100 characters',
                   ),
                   maxLength: 100,
+                  buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                    return Text(
+                      '$currentLength/$maxLength',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: currentLength > (maxLength ?? 100) ? AppColors.error : Colors.grey[600],
+                      ),
+                    );
+                  },
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Title is required';
@@ -228,10 +353,18 @@ class _EditSurveyPageState extends State<EditSurveyPage> {
                   controller: _captionController,
                   decoration: _buildInputDecoration(
                     hintText: 'Enter a short caption for your survey',
-                    helperText: 'Min 5, Max 500 characters',
                   ),
                   maxLines: 3,
                   maxLength: 500,
+                  buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                    return Text(
+                      '$currentLength/$maxLength',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: currentLength > (maxLength ?? 500) ? AppColors.error : Colors.grey[600],
+                      ),
+                    );
+                  },
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Caption is required';
@@ -252,10 +385,18 @@ class _EditSurveyPageState extends State<EditSurveyPage> {
                   controller: _descriptionController,
                   decoration: _buildInputDecoration(
                     hintText: 'Enter detailed description for survey takers',
-                    helperText: 'Min 5, Max 500 characters',
                   ),
                   maxLines: 5,
                   maxLength: 500,
+                  buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                    return Text(
+                      '$currentLength/$maxLength',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: currentLength > (maxLength ?? 500) ? AppColors.error : Colors.grey[600],
+                      ),
+                    );
+                  },
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Description is required';
@@ -398,11 +539,9 @@ class _EditSurveyPageState extends State<EditSurveyPage> {
 
   InputDecoration _buildInputDecoration({
     required String hintText,
-    String? helperText,
   }) {
     return InputDecoration(
       hintText: hintText,
-      helperText: helperText,
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(
