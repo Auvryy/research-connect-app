@@ -18,6 +18,7 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
   bool _isLoading = true;
   bool _alreadyAnswered = false;
   int _currentSectionIndex = 0;
+  int? _actualSurveyId; // The actual survey ID from the questionnaire (not the widget.surveyId which may be postId)
   
   // Store responses: Map<sectionId, Map<questionId, answer>>
   final Map<String, Map<String, dynamic>> _responses = {};
@@ -39,33 +40,36 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
     try {
       print('SurveyTakingScreen: Loading survey with ID: ${widget.surveyId}');
       
-      // Check if already answered
-      final checkResult = await SurveyAPI.checkIfAnswered(widget.surveyId);
-      print('SurveyTakingScreen: checkIfAnswered result: $checkResult');
-      
-      if (checkResult['alreadyAnswered'] == true) {
-        setState(() {
-          _alreadyAnswered = true;
-          _isLoading = false;
-        });
-        return;
-      }
-      
-      // Handle 404 - survey not found
-      if (checkResult['error'] == 'not_found') {
-        setState(() {
-          _errorMessage = 'Survey not found. This survey may have been deleted.';
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // Fetch questionnaire
+      // First, fetch the questionnaire to get the actual survey ID
+      // The widget.surveyId might be a postId, but backend needs the actual survey_id
       final result = await SurveyAPI.getSurveyQuestionnaire(widget.surveyId);
       print('SurveyTakingScreen: getSurveyQuestionnaire result: ${result['ok']}');
       
       if (result['ok'] == true) {
         final questionnaire = SurveyQuestionnaire.fromJson(result['survey']);
+        _actualSurveyId = questionnaire.surveyId;
+        print('SurveyTakingScreen: Actual survey ID: $_actualSurveyId (widget.surveyId was: ${widget.surveyId})');
+        
+        // Now check if already answered using the ACTUAL survey ID
+        final checkResult = await SurveyAPI.checkIfAnswered(_actualSurveyId!);
+        print('SurveyTakingScreen: checkIfAnswered result: $checkResult');
+        
+        if (checkResult['alreadyAnswered'] == true) {
+          setState(() {
+            _alreadyAnswered = true;
+            _isLoading = false;
+          });
+          return;
+        }
+        
+        // Handle 404 - survey not found
+        if (checkResult['error'] == 'not_found') {
+          setState(() {
+            _errorMessage = 'Survey not found. This survey may have been deleted.';
+            _isLoading = false;
+          });
+          return;
+        }
         
         // Initialize response structure
         for (var section in questionnaire.sections) {
@@ -138,6 +142,13 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
       return;
     }
 
+    if (_actualSurveyId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Survey ID not available. Please reload.')),
+      );
+      return;
+    }
+
     // Show loading
     showDialog(
       context: context,
@@ -146,9 +157,27 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
     );
 
     try {
+      // Clean up responses - only send non-empty values
+      // This prevents date validation errors for optional empty date fields
+      final cleanedResponses = <String, Map<String, dynamic>>{};
+      for (final sectionEntry in _responses.entries) {
+        cleanedResponses[sectionEntry.key] = {};
+        for (final questionEntry in sectionEntry.value.entries) {
+          final value = questionEntry.value;
+          if (value is List) {
+            if (value.isNotEmpty) {
+              cleanedResponses[sectionEntry.key]![questionEntry.key] = List<String>.from(value);
+            }
+          } else if (value != null && value.toString().isNotEmpty) {
+            cleanedResponses[sectionEntry.key]![questionEntry.key] = value;
+          }
+        }
+      }
+
+      // Use the actual survey ID, not widget.surveyId which may be postId
       final result = await SurveyAPI.submitSurveyResponse(
-        widget.surveyId,
-        {'responses': _responses},
+        _actualSurveyId!,
+        {'responses': cleanedResponses},
       );
 
       if (mounted) Navigator.pop(context); // Close loading dialog

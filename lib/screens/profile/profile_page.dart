@@ -199,7 +199,7 @@ class _ProfilePageState extends State<ProfilePage> {
               prefixIcon: Icon(icon, color: color),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               hintText: field == 'school' || field == 'program' 
-                  ? 'Min 2 characters (stored locally)' 
+                  ? 'Min 2 characters' 
                   : field == 'email' ? 'Stored locally' : null,
             ),
             keyboardType: field == 'email' ? TextInputType.emailAddress : TextInputType.text,
@@ -210,7 +210,7 @@ class _ProfilePageState extends State<ProfilePage> {
               if (field == 'email' && !value.contains('@')) {
                 return 'Please enter a valid email';
               }
-              // Optional: Validate length for consistency (stored locally)
+              // Validate length for backend fields
               if (field == 'school' || field == 'program') {
                 if (value.trim().length < 2) {
                   return '${title} must be at least 2 characters';
@@ -251,39 +251,83 @@ class _ProfilePageState extends State<ProfilePage> {
           builder: (context) => const Center(child: CircularProgressIndicator()),
         );
         
-        // Store all fields locally for now
-        // TODO: Backend sync when both school AND program are set and valid
-        // Currently: Email, School, Program are all LOCAL ONLY
-        
-        if (field == 'school') {
-          // Save locally only (no backend call to prevent freezing)
-          currentUser = currentUser!.copyWith(school: newValue);
-          print('School updated locally: $newValue');
-        } else if (field == 'program') {
-          // Save locally only (no backend call to prevent freezing)
-          currentUser = currentUser!.copyWith(program: newValue);
-          print('Program updated locally: $newValue');
-        } else if (field == 'email') {
-          // Email is local only (backend doesn't support direct update)
-          currentUser = currentUser!.copyWith(email: newValue);
-          print('Email updated locally: $newValue');
-        }
-        
-        // Close loading dialog
-        if (mounted) Navigator.of(context).pop();
-        
-        // Save to SharedPreferences
-        await UserInfo.saveUserInfo(currentUser!);
-        setState(() {});
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('$title updated successfully!'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+        try {
+          if (field == 'school' || field == 'program') {
+            // Update via backend API
+            final response = await AuthAPI.updateUserProfile(
+              school: field == 'school' ? newValue : currentUser?.school,
+              program: field == 'program' ? newValue : currentUser?.program,
+            );
+            
+            // Close loading dialog
+            if (mounted) Navigator.of(context).pop();
+            
+            if (response['ok'] == true) {
+              // Update local state
+              if (field == 'school') {
+                currentUser = currentUser!.copyWith(school: newValue);
+              } else if (field == 'program') {
+                currentUser = currentUser!.copyWith(program: newValue);
+              }
+              
+              // Save to SharedPreferences
+              await UserInfo.saveUserInfo(currentUser!);
+              setState(() {});
+              
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$title updated successfully!'),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            } else {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(response['message'] ?? 'Failed to update $title'),
+                    backgroundColor: AppColors.error,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            }
+          } else if (field == 'email') {
+            // Email is local only (backend doesn't support direct email update)
+            currentUser = currentUser!.copyWith(email: newValue);
+            
+            // Close loading dialog
+            if (mounted) Navigator.of(context).pop();
+            
+            // Save to SharedPreferences
+            await UserInfo.saveUserInfo(currentUser!);
+            setState(() {});
+            
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('$title updated locally!'),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          }
+        } catch (e) {
+          // Close loading dialog
+          if (mounted) Navigator.of(context).pop();
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error updating $title: $e'),
+                backgroundColor: AppColors.error,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
         }
       }
     }
@@ -461,7 +505,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         children: _userSurveys.map((survey) {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12.0),
-                            child: ProfileSurvey(survey: survey),
+                            child: ProfileSurvey(
+                              survey: survey,
+                              onSurveyUpdated: _loadUserSurveys,
+                            ),
                           );
                         }).toList(),
                       )
@@ -480,25 +527,25 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
-                  // Info box about local storage
+                  // Info box about storage
                   Container(
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: Colors.blue[50],
+                      color: Colors.green[50],
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue[200]!),
+                      border: Border.all(color: Colors.green[200]!),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                        Icon(Icons.cloud_done, color: Colors.green[700], size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Information stored locally on your device',
+                            'School and Program are synced with the server',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.blue[900],
+                              color: Colors.green[900],
                             ),
                           ),
                         ),
@@ -512,6 +559,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         : "Email (Not set)",
                     onTap: () => _showEditDialog('Email', 'email', currentUser?.email, Icons.email, Colors.purple),
                     iconColor: Colors.purple,
+                    subtitle: 'Stored locally',
                   ),
                   const SizedBox(height: 12),
                   _SettingsItem(
@@ -521,6 +569,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         : "School (Not set)",
                     onTap: () => _showEditDialog('School', 'school', currentUser?.school, Icons.school, Colors.red),
                     iconColor: Colors.red,
+                    subtitle: 'Synced with server',
                   ),
                   const SizedBox(height: 12),
                   _SettingsItem(
@@ -530,6 +579,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         : "Program (Not set)",
                     onTap: () => _showEditDialog('Program', 'program', currentUser?.program, Icons.book, Colors.cyan),
                     iconColor: Colors.cyan,
+                    subtitle: 'Synced with server',
                   ),
                   const SizedBox(height: 20),
                   // Account Actions Header
@@ -686,6 +736,7 @@ class _SettingsItem extends StatelessWidget {
   final VoidCallback onTap;
   final Color? iconColor;
   final Color? textColor;
+  final String? subtitle;
 
   const _SettingsItem({
     required this.icon,
@@ -693,6 +744,7 @@ class _SettingsItem extends StatelessWidget {
     required this.onTap,
     this.iconColor,
     this.textColor,
+    this.subtitle,
   });
 
   @override
@@ -723,13 +775,29 @@ class _SettingsItem extends StatelessWidget {
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: textColor ?? Colors.black87,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: textColor ?? Colors.black87,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        subtitle!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             Icon(

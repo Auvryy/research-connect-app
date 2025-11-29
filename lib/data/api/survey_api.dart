@@ -296,6 +296,79 @@ class SurveyAPI {
     }
   }
 
+  /// Update survey data
+  /// PATCH /api/survey/post/update_data
+  /// 
+  /// Backend accepts:
+  /// - id: post id (required)
+  /// - title: survey title (optional)
+  /// - post_content: post/caption content (optional)
+  /// - survey_description: survey description (optional)  
+  /// - status: "open" or "closed" (optional)
+  static Future<Map<String, dynamic>> updateSurvey({
+    required int surveyId,
+    String? title,
+    String? postContent,
+    String? surveyDescription,
+    String? status,
+  }) async {
+    try {
+      final dio = await DioClient.instance;
+      
+      print('SurveyAPI: Updating survey ID: $surveyId');
+      
+      final Map<String, dynamic> data = {
+        'id': surveyId,
+      };
+      
+      if (title != null) data['title'] = title;
+      if (postContent != null) data['post_content'] = postContent;
+      if (surveyDescription != null) data['survey_description'] = surveyDescription;
+      if (status != null) data['status'] = status;
+      
+      print('SurveyAPI: Update data: $data');
+      
+      final response = await dio.patch(
+        '/../survey/post/update_data',
+        data: data,
+      );
+      
+      print('SurveyAPI: Update response status: ${response.statusCode}');
+      print('SurveyAPI: Update response data: ${response.data}');
+      
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        return {
+          'ok': true,
+          'message': response.data['message'] ?? 'Survey updated successfully',
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to update survey',
+      };
+    } on DioException catch (e) {
+      print('SurveyAPI updateSurvey: DioException: ${e.message}');
+      print('SurveyAPI updateSurvey: Response: ${e.response?.data}');
+      
+      String errorMessage = 'Failed to update survey';
+      if (e.response?.data is Map) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      
+      return {
+        'ok': false,
+        'message': errorMessage,
+      };
+    } catch (e) {
+      print('SurveyAPI updateSurvey: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
   /// Check if user has already answered a survey
   /// POST /api/survey/questionnaire/is_answered
   static Future<Map<String, dynamic>> checkIfAnswered(int surveyId) async {

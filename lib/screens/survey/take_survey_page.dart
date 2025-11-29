@@ -24,6 +24,7 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   String? _errorMessage;
 
   SurveyQuestionnaire? _questionnaire;
+  int? _actualSurveyId; // The actual survey ID from the questionnaire (not postId)
   int _currentSectionIndex = 0;
 
   final Map<String, Map<String, dynamic>> _responses = {};
@@ -51,27 +52,30 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     print('TakeSurveyPage: Loading survey with postId: ${widget.postId}');
 
     try {
-      // First check if already answered
-      final checkResult = await SurveyAPI.checkIfAnswered(widget.postId);
-      print('TakeSurveyPage: Check answered result: $checkResult');
-      
-      if (checkResult['alreadyAnswered'] == true) {
-        setState(() {
-          _alreadyAnswered = true;
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // Fetch questionnaire
-      print('TakeSurveyPage: Fetching questionnaire...');
+      // First, fetch the questionnaire to get the actual survey ID
+      // The postId is different from survey_id - backend uses survey_id for checkIfAnswered
+      print('TakeSurveyPage: Fetching questionnaire first to get actual survey ID...');
       final result = await SurveyAPI.getSurveyQuestionnaire(widget.postId);
       print('TakeSurveyPage: Questionnaire result ok: ${result['ok']}');
 
       if (result['ok'] == true && result['survey'] != null) {
         print('TakeSurveyPage: Parsing questionnaire...');
         final questionnaire = SurveyQuestionnaire.fromJson(result['survey']);
+        _actualSurveyId = questionnaire.surveyId;
+        print('TakeSurveyPage: Actual survey ID: $_actualSurveyId (postId was: ${widget.postId})');
         print('TakeSurveyPage: Questionnaire has ${questionnaire.sections.length} sections');
+
+        // Now check if already answered using the ACTUAL survey ID
+        final checkResult = await SurveyAPI.checkIfAnswered(_actualSurveyId!);
+        print('TakeSurveyPage: Check answered result: $checkResult');
+        
+        if (checkResult['alreadyAnswered'] == true) {
+          setState(() {
+            _alreadyAnswered = true;
+            _isLoading = false;
+          });
+          return;
+        }
 
         for (var section in questionnaire.sections) {
           _responses[section.sectionId] = {};
@@ -161,6 +165,11 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
       return;
     }
 
+    if (_actualSurveyId == null) {
+      _showSnackBar('Survey ID not available. Please reload.', isError: true);
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
@@ -173,18 +182,23 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
           final value = questionEntry.value;
           // Convert checkbox lists to proper format (send empty list [] not null)
           if (value is List) {
-            cleanedResponses[sectionEntry.key]![questionEntry.key] = List<String>.from(value);
-          } else if (value != null) {
+            // Only include non-empty checkbox lists
+            if (value.isNotEmpty) {
+              cleanedResponses[sectionEntry.key]![questionEntry.key] = List<String>.from(value);
+            }
+            // Empty checkbox lists are not included - backend will skip them
+          } else if (value != null && value.toString().isNotEmpty) {
+            // Only include non-empty string values
             cleanedResponses[sectionEntry.key]![questionEntry.key] = value;
-          } else {
-            // Send empty string for null text values to avoid backend crashes
-            cleanedResponses[sectionEntry.key]![questionEntry.key] = '';
           }
+          // Empty/null values are NOT included - backend handles missing keys gracefully
+          // This prevents date validation errors for optional empty date fields
         }
       }
 
+      // Use the actual survey ID, not the post ID
       final result = await SurveyAPI.submitSurveyResponse(
-        widget.postId,
+        _actualSurveyId!,
         {'responses': cleanedResponses},
       );
 

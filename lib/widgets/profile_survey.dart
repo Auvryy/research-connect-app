@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:inquira/constants/colors.dart';
+import 'package:inquira/screens/survey/edit_survey_page.dart';
 import '../models/survey.dart';
 
 class ProfileSurvey extends StatelessWidget {
   final Survey survey;
   final int responses; // later you can connect this dynamically
+  final VoidCallback? onSurveyUpdated; // Callback when survey is edited
 
   const ProfileSurvey({
     Key? key,
     required this.survey,
     this.responses = 0,
+    this.onSurveyUpdated,
   }) : super(key: key);
 
   @override
@@ -26,13 +29,39 @@ class ProfileSurvey extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title
-            Text(
-              survey.title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+            // Title Row with Edit Button
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    survey.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                // Edit Button
+                if (survey.postId != null)
+                  IconButton(
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditSurveyPage(survey: survey),
+                        ),
+                      );
+                      if (result == true && onSurveyUpdated != null) {
+                        onSurveyUpdated!();
+                      }
+                    },
+                    icon: const Icon(Icons.edit, color: AppColors.primary, size: 20),
+                    tooltip: "Edit Survey",
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+              ],
             ),
 
             const SizedBox(height: 8),
