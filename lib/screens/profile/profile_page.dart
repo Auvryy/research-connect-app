@@ -323,6 +323,192 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  /// Show email setup dialog with OTP verification flow
+  /// Flow: Enter email -> Send OTP -> Enter OTP -> Email is set
+  Future<void> _showEmailSetupDialog() async {
+    final emailController = TextEditingController(text: currentUser?.email ?? '');
+    final otpController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isOtpSent = false;
+    bool isLoading = false;
+    String? errorMessage;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(isOtpSent ? 'Verify OTP' : 'Set Email'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isOtpSent) ...[
+                      const Text(
+                        'Enter your email address. We will send you an OTP to verify.',
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: emailController,
+                        decoration: InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.email, color: AppColors.primary),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          hintText: 'Enter your email',
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        enabled: !isLoading,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Email is required';
+                          }
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                    ] else ...[
+                      Text(
+                        'OTP sent to ${emailController.text}',
+                        style: const TextStyle(fontSize: 13, color: Colors.green),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: otpController,
+                        decoration: InputDecoration(
+                          labelText: 'OTP Code',
+                          prefixIcon: Icon(Icons.lock_clock, color: AppColors.primary),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          hintText: 'Enter 6-digit OTP',
+                        ),
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        enabled: !isLoading,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'OTP is required';
+                          }
+                          if (value.trim().length != 6) {
+                            return 'OTP must be 6 digits';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorMessage!,
+                        style: TextStyle(fontSize: 12, color: AppColors.error),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading ? null : () {
+                    if (isOtpSent) {
+                      // Go back to email entry
+                      setDialogState(() {
+                        isOtpSent = false;
+                        otpController.clear();
+                        errorMessage = null;
+                      });
+                    } else {
+                      Navigator.pop(dialogContext);
+                    }
+                  },
+                  child: Text(isOtpSent ? 'Back' : 'Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isLoading ? null : () async {
+                    if (!formKey.currentState!.validate()) return;
+                    
+                    setDialogState(() {
+                      isLoading = true;
+                      errorMessage = null;
+                    });
+
+                    try {
+                      if (!isOtpSent) {
+                        // Step 1: Send OTP
+                        final response = await OtpAPI.sendOtp(emailController.text.trim());
+                        
+                        if (response['ok'] == true) {
+                          setDialogState(() {
+                            isOtpSent = true;
+                            isLoading = false;
+                          });
+                        } else {
+                          setDialogState(() {
+                            errorMessage = response['message'] ?? 'Failed to send OTP';
+                            isLoading = false;
+                          });
+                        }
+                      } else {
+                        // Step 2: Verify OTP and set email
+                        final response = await OtpAPI.setEmailWithOtp(otpController.text.trim());
+                        
+                        if (response['ok'] == true) {
+                          // Update local user info with the new email
+                          if (currentUser != null) {
+                            currentUser = currentUser!.copyWith(email: emailController.text.trim());
+                            await UserInfo.saveUserInfo(currentUser!);
+                          }
+                          
+                          if (mounted) {
+                            Navigator.pop(dialogContext);
+                            setState(() {}); // Refresh UI
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Email set successfully!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } else {
+                          setDialogState(() {
+                            errorMessage = response['message'] ?? 'Failed to verify OTP';
+                            isLoading = false;
+                          });
+                        }
+                      }
+                    } catch (e) {
+                      setDialogState(() {
+                        errorMessage = 'Error: $e';
+                        isLoading = false;
+                      });
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                  child: isLoading 
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : Text(
+                        isOtpSent ? 'Verify & Set Email' : 'Send OTP',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    
+    emailController.dispose();
+    otpController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
