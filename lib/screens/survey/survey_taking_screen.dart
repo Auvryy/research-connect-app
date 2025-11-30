@@ -157,11 +157,17 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
     );
 
     try {
-      // Clean up responses - only send non-empty values
-      // This prevents date validation errors for optional empty date fields
+      // Clean up responses - ensure all sections are present even if empty
+      // Backend requires section keys to exist, even for optional questions
       final cleanedResponses = <String, Map<String, dynamic>>{};
+      
+      // First, ensure all sections exist in the response
+      for (var section in _questionnaire!.sections) {
+        cleanedResponses[section.sectionId] = {};
+      }
+      
+      // Then populate with actual responses
       for (final sectionEntry in _responses.entries) {
-        cleanedResponses[sectionEntry.key] = {};
         for (final questionEntry in sectionEntry.value.entries) {
           final value = questionEntry.value;
           if (value is List) {
@@ -169,8 +175,14 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
               cleanedResponses[sectionEntry.key]![questionEntry.key] = List<String>.from(value);
             }
           } else if (value != null && value.toString().isNotEmpty) {
+            // For date fields, ensure proper format
             cleanedResponses[sectionEntry.key]![questionEntry.key] = value;
           }
+        }
+        
+        // If section is empty but exists, make sure the key exists
+        if (!cleanedResponses.containsKey(sectionEntry.key)) {
+          cleanedResponses[sectionEntry.key] = {};
         }
       }
 

@@ -130,7 +130,18 @@ class _EditSurveyPageState extends State<EditSurveyPage> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.pop(context, true); // Return true to indicate changes were made
+          // Determine if fields other than status changed (requires full refresh)
+          final titleChanged = _titleController.text.trim() != _originalTitle;
+          final captionChanged = _captionController.text.trim() != _originalCaption;
+          final descriptionChanged = _descriptionController.text.trim() != _originalDescription;
+          final needsRefresh = titleChanged || captionChanged || descriptionChanged;
+          
+          // Return the updated status so parent can update local state
+          Navigator.pop(context, {
+            'updated': true,
+            'status': _status,
+            'needsRefresh': needsRefresh, // Only reload from backend if non-status fields changed
+          });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

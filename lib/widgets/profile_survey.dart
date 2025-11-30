@@ -2,19 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/screens/survey/edit_survey_page.dart';
+import 'package:inquira/screens/survey/survey_responses_page.dart';
 import 'package:inquira/data/api/survey_api.dart';
 import '../models/survey.dart';
 
 class ProfileSurvey extends StatefulWidget {
   final Survey survey;
   final int responses; // later you can connect this dynamically
-  final VoidCallback? onSurveyUpdated; // Callback when survey is edited
+  final VoidCallback? onSurveyUpdated; // Callback when survey is edited (triggers full reload)
+  final void Function(int surveyId, String newStatus)? onStatusChanged; // Callback for status-only changes
 
   const ProfileSurvey({
     Key? key,
     required this.survey,
     this.responses = 0,
     this.onSurveyUpdated,
+    this.onStatusChanged,
   }) : super(key: key);
 
   @override
@@ -23,6 +26,22 @@ class ProfileSurvey extends StatefulWidget {
 
 class _ProfileSurveyState extends State<ProfileSurvey> {
   bool _isArchiving = false;
+  late bool _currentStatus; // Track status locally
+
+  @override
+  void initState() {
+    super.initState();
+    _currentStatus = widget.survey.status;
+  }
+
+  @override
+  void didUpdateWidget(ProfileSurvey oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update local status if widget changes
+    if (oldWidget.survey.status != widget.survey.status) {
+      _currentStatus = widget.survey.status;
+    }
+  }
 
   Future<void> _archiveSurvey() async {
     if (widget.survey.postId == null) return;
@@ -131,7 +150,28 @@ class _ProfileSurveyState extends State<ProfileSurvey> {
                           builder: (context) => EditSurveyPage(survey: widget.survey),
                         ),
                       );
-                      if (result == true && widget.onSurveyUpdated != null) {
+                      // Handle the returned data
+                      if (result != null && result is Map) {
+                        if (result['updated'] == true) {
+                          // Update local status immediately for better UX
+                          if (result['status'] != null) {
+                            final newStatus = result['status'] as String;
+                            setState(() {
+                              _currentStatus = newStatus == 'open';
+                            });
+                            // Notify parent of status change without full reload
+                            if (widget.onStatusChanged != null && widget.survey.postId != null) {
+                              widget.onStatusChanged!(widget.survey.postId!, newStatus);
+                            }
+                          }
+                          // Only trigger full refresh if other fields changed (title, caption, etc.)
+                          // The status is already handled above
+                          if (result['needsRefresh'] == true && widget.onSurveyUpdated != null) {
+                            widget.onSurveyUpdated!();
+                          }
+                        }
+                      } else if (result == true && widget.onSurveyUpdated != null) {
+                        // Legacy support for old return type
                         widget.onSurveyUpdated!();
                       }
                     },
@@ -192,29 +232,42 @@ class _ProfileSurveyState extends State<ProfileSurvey> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: widget.survey.status
+                    color: _currentStatus
                         ? Colors.green.shade100
                         : Colors.red.shade100,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    widget.survey.status ? "Open" : "Closed",
+                    _currentStatus ? "Open" : "Closed",
                     style: TextStyle(
                       color:
-                          widget.survey.status ? Colors.green.shade800 : Colors.red[800],
+                          _currentStatus ? Colors.green.shade800 : Colors.red[800],
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
                   ),
                 ),
 
-                // Summary Button
+                // Summary Button - Navigate to Analytics
                 IconButton(
-                  onPressed: () {
-                    // TODO: Implement navigation to summary page
-                  },
-                  icon: const Icon(Icons.bar_chart, color: Colors.black87),
-                  tooltip: "View Summary",
+                  onPressed: widget.survey.postId != null
+                      ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SurveyResponsesPage(
+                                surveyId: widget.survey.postId!,
+                                surveyTitle: widget.survey.title,
+                              ),
+                            ),
+                          );
+                        }
+                      : null,
+                  icon: Icon(
+                    Icons.bar_chart,
+                    color: widget.survey.postId != null ? AppColors.primary : Colors.grey,
+                  ),
+                  tooltip: "View Analytics",
                 ),
               ],
             ),

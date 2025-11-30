@@ -17,18 +17,24 @@ class _HomeFeedState extends State<HomeFeed> {
   List<Survey> _allSurveys = [];
   bool _isLoading = true;
   String? _errorMessage;
+  bool _hasLoadedOnce = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSurveys();
+    // Delay slightly to ensure network/auth is ready after login
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSurveys();
+    });
   }
 
-  Future<void> _loadSurveys() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _loadSurveys({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
     
     try {
       // Fetch surveys from backend ONLY - no local storage
@@ -38,17 +44,45 @@ class _HomeFeedState extends State<HomeFeed> {
       final surveys = backendData.map((json) => _parseSurveyFromBackend(json)).toList();
       print('HomeFeed: Loaded ${surveys.length} surveys from backend');
       
-      setState(() {
-        _allSurveys = surveys;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _allSurveys = surveys;
+          _isLoading = false;
+          _hasLoadedOnce = true;
+        });
+      }
     } catch (e) {
       print('HomeFeed: Error fetching surveys: $e');
-      setState(() {
-        _allSurveys = [];
-        _isLoading = false;
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
-      });
+      
+      // If first load fails, retry once after a short delay
+      if (!_hasLoadedOnce) {
+        print('HomeFeed: First load failed, retrying in 500ms...');
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          try {
+            final retryData = await SurveyAPI.getAllSurveys();
+            final surveys = retryData.map((json) => _parseSurveyFromBackend(json)).toList();
+            if (mounted) {
+              setState(() {
+                _allSurveys = surveys;
+                _isLoading = false;
+                _hasLoadedOnce = true;
+              });
+            }
+            return;
+          } catch (retryError) {
+            print('HomeFeed: Retry also failed: $retryError');
+          }
+        }
+      }
+      
+      if (mounted) {
+        setState(() {
+          _allSurveys = [];
+          _isLoading = false;
+          _errorMessage = e.toString().replaceAll('Exception: ', '');
+        });
+      }
     }
   }
 
@@ -80,9 +114,13 @@ class _HomeFeedState extends State<HomeFeed> {
     
     // Parse status from backend if available (defaults to 'open')
     // Backend stores status as 'open' or 'closed' string
+    // Note: Backend get_post() doesn't include status field currently,
+    // so we check both 'status' and 'survey_status' fields
     bool isOpen = true;
     if (json['status'] != null) {
       isOpen = json['status'].toString().toLowerCase() == 'open';
+    } else if (json['survey_status'] != null) {
+      isOpen = json['survey_status'].toString().toLowerCase() == 'open';
     }
 
     return Survey(

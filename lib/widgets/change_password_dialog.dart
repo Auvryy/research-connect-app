@@ -4,7 +4,10 @@ import 'package:inquira/data/api/otp_api.dart';
 import 'package:inquira/data/api/auth_api.dart';
 
 class ChangePasswordDialog extends StatefulWidget {
-  const ChangePasswordDialog({super.key});
+  /// Optional user email - if provided, skips step 1 and sends OTP immediately
+  final String? userEmail;
+  
+  const ChangePasswordDialog({super.key, this.userEmail});
 
   @override
   State<ChangePasswordDialog> createState() => _ChangePasswordDialogState();
@@ -23,6 +26,21 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   int _step = 1; // 1: Enter Email, 2: Enter OTP, 3: Enter New Password
   bool _canResendOtp = true;
   int _resendCountdown = 0;
+  bool _hasPrefilledEmail = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // If userEmail is provided, prefill and auto-send OTP
+    if (widget.userEmail != null && widget.userEmail!.isNotEmpty) {
+      _emailController.text = widget.userEmail!;
+      _hasPrefilledEmail = true;
+      // Auto-send OTP after build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _sendOtp();
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -299,18 +317,21 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.1),
+            color: _hasPrefilledEmail ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue.withOpacity(0.3)),
+            border: Border.all(color: _hasPrefilledEmail ? Colors.green.withOpacity(0.3) : Colors.blue.withOpacity(0.3)),
           ),
           child: Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+              Icon(_hasPrefilledEmail ? Icons.check_circle : Icons.info_outline, 
+                   color: _hasPrefilledEmail ? Colors.green[700] : Colors.blue[700], size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Enter your email to receive a 6-digit OTP code for password reset.',
-                  style: TextStyle(fontSize: 12, color: Colors.blue[900]),
+                  _hasPrefilledEmail 
+                      ? 'Sending OTP to your registered email...'
+                      : 'Enter your email to receive a 6-digit OTP code for password reset.',
+                  style: TextStyle(fontSize: 12, color: _hasPrefilledEmail ? Colors.green[900] : Colors.blue[900]),
                 ),
               ),
             ],
@@ -320,12 +341,15 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
         TextFormField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
+          enabled: !_hasPrefilledEmail && !_isLoading,
           decoration: InputDecoration(
             labelText: 'Email Address',
             prefixIcon: const Icon(Icons.email),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
             ),
+            filled: _hasPrefilledEmail,
+            fillColor: _hasPrefilledEmail ? Colors.grey[100] : null,
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
