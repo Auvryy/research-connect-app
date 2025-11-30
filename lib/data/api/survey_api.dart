@@ -420,6 +420,112 @@ class SurveyAPI {
     }
   }
 
+  /// Get survey responses/analytics data
+  /// GET /api/survey/post/respones/computed_data/<survey_id>
+  /// Note: Backend has typo "respones" instead of "responses"
+  /// 
+  /// Returns computed analytics data for a survey including:
+  /// - survey_title, survey_content, survey_tags, etc.
+  /// - _total_peeps_who_answered: total number of respondents
+  /// - choices_data: aggregated data for choice questions
+  /// - dates_data: aggregated data for date questions
+  /// - rating_data: aggregated data for rating questions
+  /// - text_data: all text responses
+  static Future<Map<String, dynamic>> getSurveyResponses(int surveyId) async {
+    try {
+      final dio = await DioClient.instance;
+      
+      print('SurveyAPI: Fetching survey responses for survey ID: $surveyId');
+      
+      final response = await dio.get('/../survey/post/respones/computed_data/$surveyId');
+      
+      print('SurveyAPI getSurveyResponses: Response status: ${response.statusCode}');
+      print('SurveyAPI getSurveyResponses: Response data: ${response.data}');
+      
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        return {
+          'ok': true,
+          'data': response.data['message'],
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to fetch survey responses',
+      };
+    } on DioException catch (e) {
+      print('SurveyAPI getSurveyResponses: DioException: ${e.message}');
+      print('SurveyAPI getSurveyResponses: Response: ${e.response?.data}');
+      
+      String errorMessage = 'Failed to fetch survey responses';
+      if (e.response?.data is Map) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      
+      return {
+        'ok': false,
+        'message': errorMessage,
+      };
+    } catch (e) {
+      print('SurveyAPI getSurveyResponses: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  /// Unarchive a survey (restore to public feed)
+  /// PATCH /api/survey/post/unarchive
+  /// 
+  /// Backend expects: {"id": postId}
+  static Future<Map<String, dynamic>> unarchiveSurvey(int postId) async {
+    try {
+      final dio = await DioClient.instance;
+      
+      print('SurveyAPI: Unarchiving survey ID: $postId');
+      
+      final response = await dio.patch(
+        '/../survey/post/unarchive',
+        data: {'id': postId},
+      );
+      
+      print('SurveyAPI unarchiveSurvey: Response status: ${response.statusCode}');
+      print('SurveyAPI unarchiveSurvey: Response data: ${response.data}');
+      
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        return {
+          'ok': true,
+          'message': response.data['message'] ?? 'Survey unarchived successfully',
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to unarchive survey',
+      };
+    } on DioException catch (e) {
+      print('SurveyAPI unarchiveSurvey: DioException: ${e.message}');
+      print('SurveyAPI unarchiveSurvey: Response: ${e.response?.data}');
+      
+      String errorMessage = 'Failed to unarchive survey';
+      if (e.response?.data is Map) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      
+      return {
+        'ok': false,
+        'message': errorMessage,
+      };
+    } catch (e) {
+      print('SurveyAPI unarchiveSurvey: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
   /// Check if user has already answered a survey
   /// POST /api/survey/questionnaire/is_answered
   static Future<Map<String, dynamic>> checkIfAnswered(int surveyId) async {

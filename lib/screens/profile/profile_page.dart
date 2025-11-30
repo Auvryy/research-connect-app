@@ -128,6 +128,33 @@ class _ProfilePageState extends State<ProfilePage> {
     return match != null ? int.tryParse(match.group(1)!) ?? 5 : 5;
   }
 
+  /// Update survey status locally without reloading from backend
+  /// This is needed because backend's get_post() doesn't return the status field
+  void _updateSurveyStatus(int surveyId, String newStatus) {
+    setState(() {
+      final index = _userSurveys.indexWhere((s) => s.postId == surveyId);
+      if (index != -1) {
+        final oldSurvey = _userSurveys[index];
+        // Create a new Survey with updated status
+        _userSurveys[index] = Survey(
+          id: oldSurvey.id,
+          postId: oldSurvey.postId,
+          title: oldSurvey.title,
+          caption: oldSurvey.caption,
+          description: oldSurvey.description,
+          timeToComplete: oldSurvey.timeToComplete,
+          tags: oldSurvey.tags,
+          targetAudience: oldSurvey.targetAudience,
+          creator: oldSurvey.creator,
+          createdAt: oldSurvey.createdAt,
+          status: newStatus == 'open',
+          responses: oldSurvey.responses,
+          questions: oldSurvey.questions,
+        );
+      }
+    });
+  }
+
   Color _getRoleColor(String? role) {
     if (role == null) return AppColors.secondary;
     switch (role.toLowerCase()) {
@@ -391,7 +418,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       : Column(
                           children: _userSurveys.map((survey) => Padding(
                             padding: const EdgeInsets.only(bottom: 12.0),
-                            child: ProfileSurvey(survey: survey, onSurveyUpdated: _loadUserSurveys),
+                            child: ProfileSurvey(
+                              survey: survey,
+                              onSurveyUpdated: _loadUserSurveys,
+                              onStatusChanged: _updateSurveyStatus,
+                            ),
                           )).toList(),
                         )
               else
