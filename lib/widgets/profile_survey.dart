@@ -23,6 +23,22 @@ class ProfileSurvey extends StatefulWidget {
 
 class _ProfileSurveyState extends State<ProfileSurvey> {
   bool _isArchiving = false;
+  late bool _currentStatus; // Track status locally
+
+  @override
+  void initState() {
+    super.initState();
+    _currentStatus = widget.survey.status;
+  }
+
+  @override
+  void didUpdateWidget(ProfileSurvey oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update local status if widget changes
+    if (oldWidget.survey.status != widget.survey.status) {
+      _currentStatus = widget.survey.status;
+    }
+  }
 
   Future<void> _archiveSurvey() async {
     if (widget.survey.postId == null) return;
@@ -131,7 +147,22 @@ class _ProfileSurveyState extends State<ProfileSurvey> {
                           builder: (context) => EditSurveyPage(survey: widget.survey),
                         ),
                       );
-                      if (result == true && widget.onSurveyUpdated != null) {
+                      // Handle the returned data
+                      if (result != null && result is Map) {
+                        if (result['updated'] == true) {
+                          // Update local status immediately for better UX
+                          if (result['status'] != null) {
+                            setState(() {
+                              _currentStatus = result['status'] == 'open';
+                            });
+                          }
+                          // Also trigger parent refresh
+                          if (widget.onSurveyUpdated != null) {
+                            widget.onSurveyUpdated!();
+                          }
+                        }
+                      } else if (result == true && widget.onSurveyUpdated != null) {
+                        // Legacy support for old return type
                         widget.onSurveyUpdated!();
                       }
                     },
@@ -192,16 +223,16 @@ class _ProfileSurveyState extends State<ProfileSurvey> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: widget.survey.status
+                    color: _currentStatus
                         ? Colors.green.shade100
                         : Colors.red.shade100,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    widget.survey.status ? "Open" : "Closed",
+                    _currentStatus ? "Open" : "Closed",
                     style: TextStyle(
                       color:
-                          widget.survey.status ? Colors.green.shade800 : Colors.red[800],
+                          _currentStatus ? Colors.green.shade800 : Colors.red[800],
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),

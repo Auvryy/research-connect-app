@@ -130,7 +130,11 @@ class _EditSurveyPageState extends State<EditSurveyPage> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.pop(context, true); // Return true to indicate changes were made
+          // Return the updated status so parent can update local state
+          Navigator.pop(context, {
+            'updated': true,
+            'status': _status,
+          });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
