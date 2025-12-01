@@ -155,6 +155,14 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
+  /// Remove archived survey from local list
+  /// This is needed because backend doesn't filter archived surveys in get_post()
+  void _removeSurveyFromList(int surveyId) {
+    setState(() {
+      _userSurveys.removeWhere((s) => s.postId == surveyId);
+    });
+  }
+
   Color _getRoleColor(String? role) {
     if (role == null) return AppColors.secondary;
     switch (role.toLowerCase()) {
@@ -422,6 +430,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               survey: survey,
                               onSurveyUpdated: _loadUserSurveys,
                               onStatusChanged: _updateSurveyStatus,
+                              onSurveyArchived: _removeSurveyFromList,
                             ),
                           )).toList(),
                         )
