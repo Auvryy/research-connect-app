@@ -11,6 +11,7 @@ class ProfileSurvey extends StatefulWidget {
   final int responses; // later you can connect this dynamically
   final VoidCallback? onSurveyUpdated; // Callback when survey is edited (triggers full reload)
   final void Function(int surveyId, String newStatus)? onStatusChanged; // Callback for status-only changes
+  final void Function(int surveyId)? onSurveyArchived; // Callback when survey is archived
 
   const ProfileSurvey({
     Key? key,
@@ -18,6 +19,7 @@ class ProfileSurvey extends StatefulWidget {
     this.responses = 0,
     this.onSurveyUpdated,
     this.onStatusChanged,
+    this.onSurveyArchived,
   }) : super(key: key);
 
   @override
@@ -85,8 +87,11 @@ class _ProfileSurveyState extends State<ProfileSurvey> {
               backgroundColor: Colors.green,
             ),
           );
-          // Refresh the survey list
-          if (widget.onSurveyUpdated != null) {
+          // Remove the survey from the local list immediately
+          if (widget.onSurveyArchived != null) {
+            widget.onSurveyArchived!(widget.survey.postId!);
+          } else if (widget.onSurveyUpdated != null) {
+            // Fallback to full reload if no archive callback
             widget.onSurveyUpdated!();
           }
         } else {
