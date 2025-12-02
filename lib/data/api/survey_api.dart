@@ -593,4 +593,333 @@ class SurveyAPI {
       };
     }
   }
+
+  /// Like or unlike a survey (toggle)
+  /// POST /api/survey/post/like
+  /// 
+  /// Backend expects: {"id": postId}
+  /// Returns: {"ok": true, "message": "Post liked/unliked successfully"}
+  static Future<Map<String, dynamic>> likeSurvey(int postId) async {
+    try {
+      final dio = await DioClient.instance;
+      
+      print('SurveyAPI: Toggling like for post ID: $postId');
+      
+      final response = await dio.post(
+        '/../survey/post/like',
+        data: {'id': postId},
+      );
+      
+      print('SurveyAPI likeSurvey: Response status: ${response.statusCode}');
+      print('SurveyAPI likeSurvey: Response data: ${response.data}');
+      
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        return {
+          'ok': true,
+          'message': response.data['message'] ?? 'Like toggled successfully',
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to toggle like',
+      };
+    } on DioException catch (e) {
+      print('SurveyAPI likeSurvey: DioException: ${e.message}');
+      print('SurveyAPI likeSurvey: Response: ${e.response?.data}');
+      
+      String errorMessage = 'Failed to toggle like';
+      if (e.response?.data is Map) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      
+      return {
+        'ok': false,
+        'message': errorMessage,
+      };
+    } catch (e) {
+      print('SurveyAPI likeSurvey: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  /// Search surveys by keyword (searches title, category, audience, content)
+  /// GET /api/survey/post/search?query=<query>&order=<desc|asc>
+  /// NOTE: Backend search does NOT filter by approved status, so we filter client-side
+  static Future<Map<String, dynamic>> searchSurveys({
+    required String query,
+    String order = 'desc',
+  }) async {
+    try {
+      final dio = await DioClient.instance;
+      
+      print('SurveyAPI: Searching surveys with query: $query');
+      
+      final response = await dio.get(
+        '/../survey/post/search',
+        queryParameters: {
+          'query': query, // Backend uses 'query' not 'search'
+          'order': order,
+        },
+      );
+      
+      print('SurveyAPI searchSurveys: Response status: ${response.statusCode}');
+      print('SurveyAPI searchSurveys: Response data: ${response.data}');
+      
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        // Filter results to only show approved, non-archived, open surveys
+        final allSurveys = response.data['message'] as List? ?? [];
+        final filteredSurveys = allSurveys.where((survey) {
+          final status = survey['status']?.toString().toLowerCase() ?? 'open';
+          final approved = survey['approved'] as bool? ?? false;
+          final archived = survey['archived'] as bool? ?? false;
+          return status == 'open' && approved == true && archived == false;
+        }).toList();
+        
+        return {
+          'ok': true,
+          'surveys': filteredSurveys,
+        };
+      }
+      
+      // Handle 404 as empty results (not an error)
+      if (response.statusCode == 404) {
+        return {
+          'ok': true,
+          'surveys': [],
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to search surveys',
+      };
+    } on DioException catch (e) {
+      print('SurveyAPI searchSurveys: DioException: ${e.message}');
+      
+      // Handle 404 as empty results
+      if (e.response?.statusCode == 404) {
+        return {
+          'ok': true,
+          'surveys': [],
+        };
+      }
+      
+      String errorMessage = 'Failed to search surveys';
+      if (e.response?.data is Map) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      
+      return {
+        'ok': false,
+        'message': errorMessage,
+      };
+    } catch (e) {
+      print('SurveyAPI searchSurveys: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  /// Search surveys by tags and/or audience
+  /// GET /api/survey/post/search/tags?category=<tag>&target_audience=<audience>
+  static Future<Map<String, dynamic>> searchByTags({
+    String? category,
+    String? targetAudience,
+  }) async {
+    try {
+      final dio = await DioClient.instance;
+      
+      print('SurveyAPI: Searching by tags - category: $category, audience: $targetAudience');
+      
+      final Map<String, dynamic> queryParams = {};
+      if (category != null && category.isNotEmpty) {
+        queryParams['category'] = category;
+      }
+      if (targetAudience != null && targetAudience.isNotEmpty) {
+        queryParams['target_audience'] = targetAudience;
+      }
+      
+      final response = await dio.get(
+        '/../survey/post/search/tags',
+        queryParameters: queryParams,
+      );
+      
+      print('SurveyAPI searchByTags: Response status: ${response.statusCode}');
+      print('SurveyAPI searchByTags: Response data: ${response.data}');
+      
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        return {
+          'ok': true,
+          'surveys': response.data['message'] ?? [],
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to search by tags',
+      };
+    } on DioException catch (e) {
+      print('SurveyAPI searchByTags: DioException: ${e.message}');
+      
+      String errorMessage = 'Failed to search by tags';
+      if (e.response?.data is Map) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      
+      return {
+        'ok': false,
+        'message': errorMessage,
+      };
+    } catch (e) {
+      print('SurveyAPI searchByTags: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  /// Search surveys by title only
+  /// GET /api/survey/post/search/title?title=<title>
+  static Future<Map<String, dynamic>> searchByTitle(String title) async {
+    try {
+      final dio = await DioClient.instance;
+      
+      print('SurveyAPI: Searching by title: $title');
+      
+      final response = await dio.get(
+        '/../survey/post/search/title',
+        queryParameters: {'title': title},
+      );
+      
+      print('SurveyAPI searchByTitle: Response status: ${response.statusCode}');
+      print('SurveyAPI searchByTitle: Response data: ${response.data}');
+      
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        return {
+          'ok': true,
+          'surveys': response.data['message'] ?? [],
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to search by title',
+      };
+    } on DioException catch (e) {
+      print('SurveyAPI searchByTitle: DioException: ${e.message}');
+      
+      String errorMessage = 'Failed to search by title';
+      if (e.response?.data is Map) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      
+      return {
+        'ok': false,
+        'message': errorMessage,
+      };
+    } catch (e) {
+      print('SurveyAPI searchByTitle: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  /// Get user's archived surveys
+  /// GET /api/auth/post/archived
+  static Future<Map<String, dynamic>> getArchivedSurveys() async {
+    try {
+      final dio = await DioClient.instance;
+      
+      print('SurveyAPI: Fetching archived surveys...');
+      
+      final response = await dio.get('/post/archived');
+      
+      print('SurveyAPI getArchivedSurveys: Response status: ${response.statusCode}');
+      print('SurveyAPI getArchivedSurveys: Response data: ${response.data}');
+      
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        return {
+          'ok': true,
+          'surveys': response.data['message'] ?? [],
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to fetch archived surveys',
+      };
+    } on DioException catch (e) {
+      print('SurveyAPI getArchivedSurveys: DioException: ${e.message}');
+      
+      String errorMessage = 'Failed to fetch archived surveys';
+      if (e.response?.data is Map) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      
+      return {
+        'ok': false,
+        'message': errorMessage,
+      };
+    } catch (e) {
+      print('SurveyAPI getArchivedSurveys: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  /// Get user's rejected surveys
+  /// GET /api/auth/post/rejected
+  static Future<Map<String, dynamic>> getRejectedSurveys() async {
+    try {
+      final dio = await DioClient.instance;
+      
+      print('SurveyAPI: Fetching rejected surveys...');
+      
+      final response = await dio.get('/post/rejected');
+      
+      print('SurveyAPI getRejectedSurveys: Response status: ${response.statusCode}');
+      print('SurveyAPI getRejectedSurveys: Response data: ${response.data}');
+      
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        return {
+          'ok': true,
+          'surveys': response.data['message'] ?? [],
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to fetch rejected surveys',
+      };
+    } on DioException catch (e) {
+      print('SurveyAPI getRejectedSurveys: DioException: ${e.message}');
+      
+      String errorMessage = 'Failed to fetch rejected surveys';
+      if (e.response?.data is Map) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      
+      return {
+        'ok': false,
+        'message': errorMessage,
+      };
+    } catch (e) {
+      print('SurveyAPI getRejectedSurveys: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
 }

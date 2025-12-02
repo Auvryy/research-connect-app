@@ -6,7 +6,6 @@ import 'package:inquira/widgets/change_password_dialog.dart';
 import 'package:inquira/data/user_info.dart';
 import 'package:inquira/models/survey.dart';
 import 'package:inquira/data/api/auth_api.dart';
-import 'package:inquira/data/api/survey_api.dart';
 import 'package:inquira/data/api/otp_api.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -24,54 +23,73 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _loadUserDataFromBackend();
-    _loadUserSurveys();
+    _loadUserDataAndSurveys();
   }
 
-  Future<void> _loadUserDataFromBackend() async {
-    try {
-      final response = await AuthAPI.getUserData();
-      if (response['ok'] == true && response['data'] != null) {
-        final userData = response['data'];
-        final updatedUser = UserInfo(
-          id: userData['id'] as int?,
-          username: userData['username'] as String? ?? currentUser?.username ?? '',
-          profilePicUrl: userData['profile_pic_url'] as String?,
-          role: userData['role'] as String?,
-          email: userData['email'] as String? ?? currentUser?.email,
-          school: userData['school'] as String? ?? currentUser?.school,
-          program: userData['program'] as String? ?? currentUser?.program,
-        );
-        await UserInfo.saveUserInfo(updatedUser);
-        if (mounted) setState(() => currentUser = updatedUser);
-      } else {
-        final loadedUser = await UserInfo.loadUserInfo();
-        if (loadedUser != null && mounted) setState(() => currentUser = loadedUser);
-      }
-    } catch (e) {
-      final loadedUser = await UserInfo.loadUserInfo();
-      if (loadedUser != null && mounted) setState(() => currentUser = loadedUser);
-    }
-  }
-
-  Future<void> _loadUserSurveys() async {
+  /// Load both user data and user's surveys from /api/auth/user_data endpoint
+  /// This endpoint returns user_info and user_posts (user's own surveys)
+  Future<void> _loadUserDataAndSurveys() async {
     setState(() => _isLoading = true);
     try {
-      final backendData = await SurveyAPI.getAllSurveys();
-      final userSurveys = backendData
-          .where((json) => json['user_username'] == currentUser?.username)
-          .map((json) => _parseSurveyFromBackend(json))
-          .toList();
-      setState(() {
-        _userSurveys = userSurveys;
-        _isLoading = false;
-      });
+      final response = await AuthAPI.getFullUserData();
+      if (response['ok'] == true && response['data'] != null) {
+        final data = response['data'];
+        
+        // Update user info
+        final userInfo = data['user_info'];
+        if (userInfo != null) {
+          final updatedUser = UserInfo(
+            id: userInfo['id'] as int?,
+            username: userInfo['username'] as String? ?? currentUser?.username ?? '',
+            profilePicUrl: userInfo['profile_pic_url'] as String?,
+            role: userInfo['role'] as String?,
+            email: userInfo['email'] as String? ?? currentUser?.email,
+            school: userInfo['school'] as String? ?? currentUser?.school,
+            program: userInfo['program'] as String? ?? currentUser?.program,
+          );
+          await UserInfo.saveUserInfo(updatedUser);
+          if (mounted) setState(() => currentUser = updatedUser);
+        }
+        
+        // Load user's surveys directly from response (no filtering needed!)
+        final userPosts = data['user_posts'] as List? ?? [];
+        final userSurveys = userPosts
+            .map((json) => _parseSurveyFromBackend(json as Map<String, dynamic>))
+            .toList();
+        
+        if (mounted) {
+          setState(() {
+            _userSurveys = userSurveys;
+            _isLoading = false;
+          });
+        }
+      } else {
+        // Fallback to local data
+        final loadedUser = await UserInfo.loadUserInfo();
+        if (loadedUser != null && mounted) setState(() => currentUser = loadedUser);
+        if (mounted) setState(() => _isLoading = false);
+      }
     } catch (e) {
-      setState(() {
-        _userSurveys = [];
-        _isLoading = false;
-      });
+      print('Error loading user data and surveys: $e');
+      final loadedUser = await UserInfo.loadUserInfo();
+      if (loadedUser != null && mounted) setState(() => currentUser = loadedUser);
+      if (mounted) {
+        setState(() {
+          _userSurveys = [];
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  /// Legacy method for backward compatibility - just calls the combined method
+  Future<void> _loadUserDataFromBackend() async {
+    await _loadUserDataAndSurveys();
+  }
+
+  /// Legacy method for backward compatibility - just calls the combined method  
+  Future<void> _loadUserSurveys() async {
+    await _loadUserDataAndSurveys();
   }
 
   Survey _parseSurveyFromBackend(Map<String, dynamic> json) {
@@ -99,6 +117,15 @@ class _ProfilePageState extends State<ProfilePage> {
       isOpen = json['survey_status'].toString().toLowerCase() == 'open';
     }
 
+    // Parse response count, likes count, and liked status
+    final numOfResponses = json['num_of_responses'] as int? ?? 0;
+    final numOfLikes = json['num_of_likes'] as int? ?? 0;
+    final isLiked = json['is_liked'] as bool? ?? false;
+
+    // Parse approved and archived flags
+    final approved = json['approved'] as bool? ?? false;
+    final archived = json['archived'] as bool? ?? false;
+
     return Survey(
       id: json['pk_survey_id']?.toString() ?? '',
       postId: json['pk_survey_id'] as int?,
@@ -111,7 +138,11 @@ class _ProfilePageState extends State<ProfilePage> {
       creator: json['user_username'] ?? 'Unknown',
       createdAt: _parseDateTime(json['survey_date_created']),
       status: isOpen,
-      responses: 0,
+      approved: approved,
+      archived: archived,
+      responses: numOfResponses,
+      numOfLikes: numOfLikes,
+      isLiked: isLiked,
       questions: [],
     );
   }
@@ -148,7 +179,11 @@ class _ProfilePageState extends State<ProfilePage> {
           creator: oldSurvey.creator,
           createdAt: oldSurvey.createdAt,
           status: newStatus == 'open',
+          approved: oldSurvey.approved,
+          archived: oldSurvey.archived,
           responses: oldSurvey.responses,
+          numOfLikes: oldSurvey.numOfLikes,
+          isLiked: oldSurvey.isLiked,
           questions: oldSurvey.questions,
         );
       }
@@ -161,6 +196,23 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {
       _userSurveys.removeWhere((s) => s.postId == surveyId);
     });
+  }
+
+  /// Calculate total responses across all user surveys
+  int _calculateTotalResponses() {
+    if (_userSurveys.isEmpty) return 0;
+    return _userSurveys.fold(0, (sum, survey) => sum + survey.responses);
+  }
+
+  /// Calculate average response rate across open surveys
+  /// Response rate = Total responses / Number of open surveys
+  String _calculateResponseRate() {
+    if (_userSurveys.isEmpty) return '0%';
+    final openSurveys = _userSurveys.where((s) => s.status).length;
+    if (openSurveys == 0) return 'N/A';
+    final totalResponses = _calculateTotalResponses();
+    final avgResponses = (totalResponses / openSurveys).round();
+    return '$avgResponses avg';
   }
 
   Color _getRoleColor(String? role) {
@@ -391,8 +443,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Row(
                   children: [
                     Expanded(child: _StatItem(label: "Surveys Posted", value: _userSurveys.length.toString())),
-                    const Expanded(child: _StatItem(label: "Total Responses", value: "0")),
-                    const Expanded(child: _StatItem(label: "Response Rate", value: "0%")),
+                    Expanded(child: _StatItem(label: "Total Responses", value: _calculateTotalResponses().toString())),
+                    Expanded(child: _StatItem(label: "Response Rate", value: _calculateResponseRate())),
                   ],
                 ),
               ),
@@ -424,15 +476,39 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         )
                       : Column(
-                          children: _userSurveys.map((survey) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12.0),
-                            child: ProfileSurvey(
-                              survey: survey,
-                              onSurveyUpdated: _loadUserSurveys,
-                              onStatusChanged: _updateSurveyStatus,
-                              onSurveyArchived: _removeSurveyFromList,
+                          children: [
+                            // Info banner about approval process
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.blue.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'New surveys require admin approval before appearing in the public feed.',
+                                      style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          )).toList(),
+                            ..._userSurveys.map((survey) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: ProfileSurvey(
+                                survey: survey,
+                                onSurveyUpdated: _loadUserSurveys,
+                                onStatusChanged: _updateSurveyStatus,
+                                onSurveyArchived: _removeSurveyFromList,
+                              ),
+                            )),
+                          ],
                         )
               else
                 Column(
@@ -457,6 +533,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     _SettingsItem(icon: Icons.email, label: currentUser?.email ?? "N/A", onTap: _showEmailSetupDialog, iconColor: Colors.orange),
                     const SizedBox(height: 20),
                     Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Account Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700]))),
+                    _SettingsItem(
+                      icon: Icons.archive,
+                      label: "Archived Surveys",
+                      onTap: () => Navigator.pushNamed(context, '/archived-surveys'),
+                      iconColor: Colors.orange,
+                    ),
+                    const SizedBox(height: 12),
                     _SettingsItem(icon: Icons.lock, label: "Change Password", onTap: _showChangePasswordDialog),
                     const SizedBox(height: 12),
                     _SettingsItem(

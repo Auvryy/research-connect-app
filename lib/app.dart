@@ -8,6 +8,7 @@ import 'screens/add/questions_page.dart';
 import 'screens/add/survey_review_page.dart';
 import 'screens/survey/survey_taking_screen.dart'; // ✅ CHANGED: Import new screen
 import 'screens/profile/edit_profile_page.dart';
+import 'screens/profile/archived_surveys_page.dart';
 import 'models/survey_creation.dart';
 import 'data/auth_guard.dart';
 
@@ -32,6 +33,7 @@ class MyApp extends StatelessWidget {
         '/profile': (context) => const AuthGuard(child: HomePage(initialTab: 1)),
         '/create-survey': (context) => const AuthGuard(child: CreateSurveyPage()),
         '/edit-profile': (context) => const AuthGuard(child: EditProfilePage()),
+        '/archived-surveys': (context) => const AuthGuard(child: ArchivedSurveysPage()),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/create-survey/audience') {

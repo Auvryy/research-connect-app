@@ -13,7 +13,11 @@ class Survey {
   final String creator;
   final DateTime createdAt;
   final bool status; // true = active, false = closed
+  final bool approved; // true = approved by admin, false = pending
+  final bool archived; // true = archived, false = active
   int responses; // number of responses
+  int numOfLikes; // number of likes
+  bool isLiked; // whether current user has liked this survey
   final List<Question> questions;
 
   Survey({
@@ -28,13 +32,28 @@ class Survey {
     required this.creator,
     required this.createdAt,
     required this.status,
+    this.approved = false, // default to false (pending)
+    this.archived = false, // default to false
     required this.questions,
     this.responses = 0, // default to 0
+    this.numOfLikes = 0, // default to 0
+    this.isLiked = false, // default to false
   });
 
   /// Convenience method to increment response count
   void addResponse() {
     responses++;
+  }
+
+  /// Toggle like status locally
+  void toggleLike() {
+    if (isLiked) {
+      isLiked = false;
+      numOfLikes = numOfLikes > 0 ? numOfLikes - 1 : 0;
+    } else {
+      isLiked = true;
+      numOfLikes++;
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -50,7 +69,11 @@ class Survey {
       'creator': creator,
       'createdAt': createdAt.toIso8601String(),
       'status': status,
+      'approved': approved,
+      'archived': archived,
       'responses': responses,
+      'num_of_likes': numOfLikes,
+      'is_liked': isLiked,
       'questions': questions.map((q) => q.toJson()).toList(),
     };
   }
@@ -68,7 +91,11 @@ class Survey {
       creator: json['creator'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
       status: json['status'] as bool,
+      approved: json['approved'] as bool? ?? false,
+      archived: json['archived'] as bool? ?? false,
       responses: json['responses'] as int,
+      numOfLikes: json['num_of_likes'] as int? ?? 0,
+      isLiked: json['is_liked'] as bool? ?? false,
       questions: (json['questions'] as List)
           .map((q) => Question.fromJson(q as Map<String, dynamic>))
           .toList(),

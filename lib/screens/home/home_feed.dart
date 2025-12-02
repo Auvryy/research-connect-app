@@ -15,9 +15,13 @@ class HomeFeed extends StatefulWidget {
 class _HomeFeedState extends State<HomeFeed> {
   String selectedFilter = "All";
   List<Survey> _allSurveys = [];
+  List<Survey> _searchResults = [];
   bool _isLoading = true;
+  bool _isSearching = false;
   String? _errorMessage;
   bool _hasLoadedOnce = false;
+  final TextEditingController _searchController = TextEditingController();
+  bool _showSearchResults = false;
 
   @override
   void initState() {
@@ -25,6 +29,67 @@ class _HomeFeedState extends State<HomeFeed> {
     // Delay slightly to ensure network/auth is ready after login
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadSurveys();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchSurveys(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() {
+        _showSearchResults = false;
+        _searchResults = [];
+      });
+      return;
+    }
+
+    setState(() => _isSearching = true);
+
+    try {
+      final response = await SurveyAPI.searchSurveys(query: query);
+      
+      if (response['ok'] == true) {
+        final surveys = (response['surveys'] as List)
+            .map((json) => _parseSurveyFromBackend(json))
+            .toList();
+        
+        if (mounted) {
+          setState(() {
+            _searchResults = surveys;
+            _showSearchResults = true;
+            _isSearching = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _searchResults = [];
+            _showSearchResults = true;
+            _isSearching = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('HomeFeed: Search error: $e');
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _showSearchResults = true;
+          _isSearching = false;
+        });
+      }
+    }
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _showSearchResults = false;
+      _searchResults = [];
     });
   }
 
@@ -88,7 +153,8 @@ class _HomeFeedState extends State<HomeFeed> {
 
   /// Parse survey from backend JSON format to Survey model
   /// Backend returns: pk_survey_id, survey_title, survey_content, survey_category,
-  /// survey_target_audience, survey_date_created, user_username, user_profile, approx_time
+  /// survey_target_audience, survey_date_created, user_username, user_profile, approx_time,
+  /// num_of_responses, num_of_likes, is_liked
   /// Note: survey_content from get_post() is actually Posts.content (the caption)
   Survey _parseSurveyFromBackend(Map<String, dynamic> json) {
     // Handle target_audience which can be a list or string
@@ -123,6 +189,15 @@ class _HomeFeedState extends State<HomeFeed> {
       isOpen = json['survey_status'].toString().toLowerCase() == 'open';
     }
 
+    // Parse response count, likes count, and liked status
+    final numOfResponses = json['num_of_responses'] as int? ?? 0;
+    final numOfLikes = json['num_of_likes'] as int? ?? 0;
+    final isLiked = json['is_liked'] as bool? ?? false;
+
+    // Parse approved and archived flags
+    final approved = json['approved'] as bool? ?? false;
+    final archived = json['archived'] as bool? ?? false;
+
     return Survey(
       id: json['pk_survey_id']?.toString() ?? '',
       postId: json['pk_survey_id'] as int?,
@@ -135,7 +210,11 @@ class _HomeFeedState extends State<HomeFeed> {
       creator: json['user_username'] ?? 'Unknown',
       createdAt: _parseDateTime(json['survey_date_created']),
       status: isOpen,
-      responses: 0,
+      approved: approved,
+      archived: archived,
+      responses: numOfResponses,
+      numOfLikes: numOfLikes,
+      isLiked: isLiked,
       questions: [], // Questions are loaded separately when taking the survey
     );
   }
@@ -157,17 +236,66 @@ class _HomeFeedState extends State<HomeFeed> {
 
   @override
   Widget build(BuildContext context) {
-    // Filtered list based on selectedFilter
-    final filteredSurveys = selectedFilter == "All"
-        ? _allSurveys 
-        : _allSurveys.where((s) => s.tags.contains(selectedFilter)).toList();
+    // Determine which surveys to display
+    List<Survey> displaySurveys;
+    if (_showSearchResults) {
+      displaySurveys = _searchResults;
+    } else {
+      displaySurveys = selectedFilter == "All"
+          ? _allSurveys 
+          : _allSurveys.where((s) => s.tags.contains(selectedFilter)).toList();
+    }
 
     return Column(
       children: [
         const SizedBox(height: 10),
 
-        // Filter section
-        SingleChildScrollView(
+        // Search Bar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search surveys...',
+              prefixIcon: const Icon(Icons.search, color: AppColors.shadedPrimary),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: AppColors.shadedPrimary),
+                      onPressed: _clearSearch,
+                    )
+                  : null,
+              filled: true,
+              fillColor: Colors.grey.shade100,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            onChanged: (value) {
+              // Debounce search - wait 500ms after user stops typing
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (_searchController.text == value && value.isNotEmpty) {
+                  _searchSurveys(value);
+                }
+              });
+              if (value.isEmpty) {
+                _clearSearch();
+              }
+            },
+            onSubmitted: (value) {
+              if (value.isNotEmpty) {
+                _searchSurveys(value);
+              }
+            },
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // Filter section (hide when showing search results)
+        if (!_showSearchResults)
+          SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
@@ -214,100 +342,145 @@ class _HomeFeedState extends State<HomeFeed> {
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : _errorMessage != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.cloud_off,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Failed to load surveys',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _errorMessage!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[500],
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            ElevatedButton.icon(
-                              onPressed: _loadSurveys,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Retry'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : filteredSurveys.isEmpty
+              : _isSearching
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
                       ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.poll_outlined,
-                                size: 80,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No surveys yet',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey[600],
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.cloud_off,
+                                  size: 64,
+                                  color: Colors.grey[400],
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Create your first survey!',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[500],
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Failed to load surveys',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[700],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: _loadSurveys,
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('Refresh'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
+                                const SizedBox(height: 8),
+                                Text(
+                                  _errorMessage!,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[500],
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 24),
+                                ElevatedButton.icon(
+                                  onPressed: _loadSurveys,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Retry'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         )
-                      : RefreshIndicator(
-                          onRefresh: _loadSurveys,
-                          child: ListView.builder(
-                        itemCount: filteredSurveys.length,
-                        itemBuilder: (context, index) {
-                          final survey = filteredSurveys[index];
-                          return SurveyCard(survey: survey);
-                        },
-                      ),
-                    ),
+                      : displaySurveys.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _showSearchResults ? Icons.search_off : Icons.poll_outlined,
+                                    size: 80,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    _showSearchResults ? 'No results found' : 'No surveys yet',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _showSearchResults 
+                                        ? 'Try a different search term'
+                                        : 'Create your first survey!',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[500],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  if (!_showSearchResults)
+                                    ElevatedButton.icon(
+                                      onPressed: _loadSurveys,
+                                      icon: const Icon(Icons.refresh),
+                                      label: const Text('Refresh'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                    ),
+                                  if (_showSearchResults)
+                                    ElevatedButton.icon(
+                                      onPressed: _clearSearch,
+                                      icon: const Icon(Icons.clear),
+                                      label: const Text('Clear Search'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            )
+                          : RefreshIndicator(
+                              onRefresh: _showSearchResults 
+                                  ? () => _searchSurveys(_searchController.text)
+                                  : _loadSurveys,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (_showSearchResults)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            '${displaySurveys.length} result${displaySurveys.length == 1 ? '' : 's'} found',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          TextButton(
+                                            onPressed: _clearSearch,
+                                            child: const Text('Clear'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: ListView.builder(
+                                      itemCount: displaySurveys.length,
+                                      itemBuilder: (context, index) {
+                                        final survey = displaySurveys[index];
+                                        return SurveyCard(survey: survey);
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
         ),
       ],
     );
