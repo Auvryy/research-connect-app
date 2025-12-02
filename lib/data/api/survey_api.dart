@@ -597,7 +597,7 @@ class SurveyAPI {
   /// Like or unlike a survey (toggle)
   /// POST /api/survey/post/like
   /// 
-  /// Backend expects: {"id": postId}
+  /// Backend expects: {"post_id": postId}
   /// Returns: {"ok": true, "message": "Post liked/unliked successfully"}
   static Future<Map<String, dynamic>> likeSurvey(int postId) async {
     try {
@@ -607,7 +607,7 @@ class SurveyAPI {
       
       final response = await dio.post(
         '/../survey/post/like',
-        data: {'id': postId},
+        data: {'post_id': postId}, // Backend expects 'post_id' not 'id'
       );
       
       print('SurveyAPI likeSurvey: Response status: ${response.statusCode}');
@@ -648,7 +648,6 @@ class SurveyAPI {
 
   /// Search surveys by keyword (searches title, category, audience, content)
   /// GET /api/survey/post/search?query=<query>&order=<desc|asc>
-  /// NOTE: Backend search does NOT filter by approved status, so we filter client-side
   static Future<Map<String, dynamic>> searchSurveys({
     required String query,
     String order = 'desc',
@@ -670,18 +669,12 @@ class SurveyAPI {
       print('SurveyAPI searchSurveys: Response data: ${response.data}');
       
       if (response.statusCode == 200 && response.data['ok'] == true) {
-        // Filter results to only show approved, non-archived, open surveys
-        final allSurveys = response.data['message'] as List? ?? [];
-        final filteredSurveys = allSurveys.where((survey) {
-          final status = survey['status']?.toString().toLowerCase() ?? 'open';
-          final approved = survey['approved'] as bool? ?? false;
-          final archived = survey['archived'] as bool? ?? false;
-          return status == 'open' && approved == true && archived == false;
-        }).toList();
+        // Backend returns matching posts - return them directly
+        final surveys = response.data['message'] as List? ?? [];
         
         return {
           'ok': true,
-          'surveys': filteredSurveys,
+          'surveys': surveys,
         };
       }
       

@@ -155,7 +155,7 @@ class _SurveyCardState extends State<SurveyCard> {
               // HEADER: Avatar + Author Info
               Row(
                 children: [
-                  // Avatar
+                  // Avatar - Show profile picture or fallback to initials
                   Container(
                     width: 40,
                     height: 40,
@@ -163,19 +163,46 @@ class _SurveyCardState extends State<SurveyCard> {
                       color: AppColors.primaryText,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Center(
-                      child: Text(
-                        survey.creator.isNotEmpty 
-                            ? survey.creator.length >= 2 
-                                ? survey.creator.substring(0, 2).toUpperCase()
-                                : survey.creator[0].toUpperCase()
-                            : 'MC',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: survey.creatorProfileUrl != null && survey.creatorProfileUrl!.isNotEmpty
+                          ? Image.network(
+                              survey.creatorProfileUrl!,
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                // Fallback to initials if image fails to load
+                                return Center(
+                                  child: Text(
+                                    survey.creator.isNotEmpty 
+                                        ? survey.creator.length >= 2 
+                                            ? survey.creator.substring(0, 2).toUpperCase()
+                                            : survey.creator[0].toUpperCase()
+                                        : 'MC',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                );
+                              },
+                            )
+                          : Center(
+                              child: Text(
+                                survey.creator.isNotEmpty 
+                                    ? survey.creator.length >= 2 
+                                        ? survey.creator.substring(0, 2).toUpperCase()
+                                        : survey.creator[0].toUpperCase()
+                                    : 'MC',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(width: 12),

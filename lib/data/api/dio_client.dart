@@ -69,15 +69,28 @@ class DioClient {
         },
         onError: (DioException error, ErrorInterceptorHandler handler) async {
           // Check if error message indicates token expiration
-          final errorMsg = error.response?.data?['message']?.toString() ?? '';
+          final errorMsg = error.response?.data?['message']?.toString().toLowerCase() ?? '';
           final isTokenExpired = error.response?.statusCode == 401 || 
-                                errorMsg.contains('Access token expired');
+                                errorMsg.contains('access token expired') ||
+                                errorMsg.contains('token has expired') ||
+                                errorMsg.contains('please log in');
           
-          if (isTokenExpired) {
+          // Don't retry refresh endpoint itself
+          final isRefreshRequest = error.requestOptions.path.contains('/refresh');
+          
+          if (isTokenExpired && !isRefreshRequest) {
             print('DioClient: Token expired, attempting refresh...');
             try {
               // Create a new dio instance without interceptors to avoid infinite loop
-              final refreshDio = Dio(dio.options);
+              final refreshDio = Dio(BaseOptions(
+                baseUrl: 'http://10.0.2.2:5000/api/user',
+                connectTimeout: const Duration(seconds: 30),
+                receiveTimeout: const Duration(seconds: 30),
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
+              ));
               if (_cookieJar != null) {
                 refreshDio.interceptors.add(CookieManager(_cookieJar!));
               }
@@ -89,7 +102,20 @@ class DioClient {
                 
                 // Retry the original request with refreshed token
                 final options = error.requestOptions;
-                final response = await dio.request(
+                final retryDio = Dio(BaseOptions(
+                  baseUrl: dio.options.baseUrl,
+                  connectTimeout: const Duration(seconds: 30),
+                  receiveTimeout: const Duration(seconds: 30),
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                  },
+                ));
+                if (_cookieJar != null) {
+                  retryDio.interceptors.add(CookieManager(_cookieJar!));
+                }
+                
+                final response = await retryDio.request(
                   options.path,
                   data: options.data,
                   queryParameters: options.queryParameters,

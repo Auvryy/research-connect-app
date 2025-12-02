@@ -12,6 +12,7 @@ class SurveyCreation {
   List<SurveyQuestion> questions;
   List<SurveySection> sections;
   bool isDraft;
+  String? bypassCode; // Optional code to bypass admin approval
 
   SurveyCreation({
     this.id,
@@ -24,6 +25,7 @@ class SurveyCreation {
     List<SurveyQuestion>? questions,
     List<SurveySection>? sections,
     this.isDraft = true,
+    this.bypassCode,
   })  : tags = tags ?? [],
         targetAudience = targetAudience ?? [],
         questions = questions ?? [],
@@ -41,6 +43,7 @@ class SurveyCreation {
       'questions': questions.map((q) => q.toJson()).toList(),
       'sections': sections.map((s) => s.toJson()).toList(),
       'isDraft': isDraft,
+      'bypassCode': bypassCode,
     };
   }
 
@@ -48,7 +51,7 @@ class SurveyCreation {
   /// POST /api/survey/post/send/questionnaire/mobile
   /// Returns JSON in camelCase format matching FLUTTER_SURVEY_JSON_FORMAT.md
   Map<String, dynamic> toBackendJson() {
-    return {
+    final Map<String, dynamic> result = {
       'caption': caption.isEmpty ? title : caption,
       'title': title,
       'description': description.isEmpty ? caption : description,
@@ -83,6 +86,13 @@ class SurveyCreation {
         };
       }).toList(),
     };
+    
+    // Add bypass code if provided (for admin approval bypass)
+    if (bypassCode != null && bypassCode!.isNotEmpty) {
+      result['post_code'] = bypassCode;
+    }
+    
+    return result;
   }
 
   factory SurveyCreation.fromJson(Map<String, dynamic> json) {
@@ -101,6 +111,7 @@ class SurveyCreation {
           ?.map((s) => SurveySection.fromJson(s as Map<String, dynamic>))
           .toList() ?? [],
       isDraft: json['isDraft'] as bool? ?? true,
+      bypassCode: json['bypassCode'] as String?,
     );
   }
 
@@ -142,6 +153,7 @@ class SurveyCreation {
     List<SurveyQuestion>? questions,
     List<SurveySection>? sections,
     bool? isDraft,
+    String? bypassCode,
   }) {
     return SurveyCreation(
       id: id ?? this.id,
@@ -154,6 +166,7 @@ class SurveyCreation {
       questions: questions ?? this.questions,
       sections: sections ?? this.sections,
       isDraft: isDraft ?? this.isDraft,
+      bypassCode: bypassCode ?? this.bypassCode,
     );
   }
 }

@@ -11,6 +11,7 @@ class Survey {
   final List<String> tags; // up to 3
   final String targetAudience;
   final String creator;
+  final String? creatorProfileUrl; // Profile picture URL of the creator
   final DateTime createdAt;
   final bool status; // true = active, false = closed
   final bool approved; // true = approved by admin, false = pending
@@ -30,6 +31,7 @@ class Survey {
     required this.tags,
     required this.targetAudience,
     required this.creator,
+    this.creatorProfileUrl,
     required this.createdAt,
     required this.status,
     this.approved = false, // default to false (pending)
@@ -67,6 +69,7 @@ class Survey {
       'tags': tags,
       'targetAudience': targetAudience,
       'creator': creator,
+      'creatorProfileUrl': creatorProfileUrl,
       'createdAt': createdAt.toIso8601String(),
       'status': status,
       'approved': approved,
@@ -89,6 +92,7 @@ class Survey {
       tags: List<String>.from(json['tags']),
       targetAudience: json['targetAudience'] as String,
       creator: json['creator'] as String,
+      creatorProfileUrl: json['creatorProfileUrl'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       status: json['status'] as bool,
       approved: json['approved'] as bool? ?? false,

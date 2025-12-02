@@ -235,25 +235,6 @@ class _ProfileSurveyState extends State<ProfileSurvey> {
                 // Status Badges Row
                 Row(
                   children: [
-                    // Approval Status Badge - Shows "Pending Approval" for unapproved surveys
-                    if (!widget.survey.approved)
-                      Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade100,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          "Pending Approval",
-                          style: TextStyle(
-                            color: Colors.orange.shade800,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    if (!widget.survey.approved) const SizedBox(width: 8),
                     // Open/Closed Status Badge
                     Container(
                       padding:

@@ -197,6 +197,9 @@ class _HomeFeedState extends State<HomeFeed> {
     // Parse approved and archived flags
     final approved = json['approved'] as bool? ?? false;
     final archived = json['archived'] as bool? ?? false;
+    
+    // Parse creator profile URL
+    final creatorProfileUrl = json['user_profile'] as String?;
 
     return Survey(
       id: json['pk_survey_id']?.toString() ?? '',
@@ -208,6 +211,7 @@ class _HomeFeedState extends State<HomeFeed> {
       tags: tags,
       targetAudience: targetAudience,
       creator: json['user_username'] ?? 'Unknown',
+      creatorProfileUrl: creatorProfileUrl,
       createdAt: _parseDateTime(json['survey_date_created']),
       status: isOpen,
       approved: approved,
