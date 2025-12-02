@@ -55,7 +55,3 @@ flutter run
 * Dark / Light mode
 
 ---
-
-## 📄 License
-
-MIT License © 2025 [Your Name]
