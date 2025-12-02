@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/api/auth_api.dart';
 import 'package:inquira/data/user_info.dart';
-import 'package:inquira/widgets/change_password_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
@@ -152,60 +151,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
             ),
 
-            const SizedBox(height: 32),
-
-            // Quick Actions
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Quick Actions',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[800],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.purple.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.lock, color: AppColors.purple),
-                    ),
-                    title: const Text('Change Password'),
-                    subtitle: const Text('Update your account password via email OTP'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () async {
-                      final result = await showDialog(
-                        context: context,
-                        builder: (context) => const ChangePasswordDialog(),
-                      );
-                      if (result == true && mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Password changed successfully! Please login again with your new password.'),
-                            backgroundColor: Colors.green,
-                            duration: Duration(seconds: 4),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-
             const SizedBox(height: 16),
 
             // Note about backend limitations
@@ -236,7 +181,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   _buildFeatureItem('✓', 'Upload & manage profile picture'),
                   _buildFeatureItem('✓', 'View your username & role'),
                   _buildFeatureItem('✓', 'View & manage your surveys'),
-                  _buildFeatureItem('✓', 'Change password via email OTP'),
                   _buildFeatureItem('✓', 'Secure logout'),
                   const SizedBox(height: 12),
                   Divider(color: Colors.grey[400]),

@@ -232,25 +232,30 @@ class _ProfileSurveyState extends State<ProfileSurvey> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Status Badge - Shows "Open" or "Closed"
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _currentStatus
-                        ? Colors.green.shade100
-                        : Colors.red.shade100,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    _currentStatus ? "Open" : "Closed",
-                    style: TextStyle(
-                      color:
-                          _currentStatus ? Colors.green.shade800 : Colors.red[800],
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                // Status Badges Row
+                Row(
+                  children: [
+                    // Open/Closed Status Badge
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _currentStatus
+                            ? Colors.green.shade100
+                            : Colors.red.shade100,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        _currentStatus ? "Open" : "Closed",
+                        style: TextStyle(
+                          color:
+                              _currentStatus ? Colors.green.shade800 : Colors.red[800],
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
 
                 // Summary Button - Navigate to Analytics

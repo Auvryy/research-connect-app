@@ -92,18 +92,8 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-        actions: [
-          IconButton(
-            onPressed: () {
-              // TODO: search functionality
-            },
-            icon: SvgPicture.asset(
-              'assets/icons/search-icon.svg',
-              height: 30,
-              width: 30,
-            ),
-          ),
-          const SizedBox(width: 12),
+        actions: const [
+          SizedBox(width: 12), // Keep some padding
         ],
       );
     } else if (_currentIndex == 1) {

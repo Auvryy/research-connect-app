@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
+import 'package:inquira/data/api/survey_api.dart';
 import '../models/survey.dart';
 
 class SurveyCard extends StatefulWidget {
   final Survey survey;
+  final VoidCallback? onLikeChanged; // Optional callback when like status changes
 
-  const SurveyCard({Key? key, required this.survey}) : super(key: key);
+  const SurveyCard({Key? key, required this.survey, this.onLikeChanged}) : super(key: key);
 
   @override
   _SurveyCardState createState() => _SurveyCardState();
@@ -13,6 +15,74 @@ class SurveyCard extends StatefulWidget {
 
 class _SurveyCardState extends State<SurveyCard> {
   bool _isExpanded = false;
+  bool _isLiking = false;
+  late bool _isLiked;
+  late int _likeCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _isLiked = widget.survey.isLiked;
+    _likeCount = widget.survey.numOfLikes;
+  }
+
+  @override
+  void didUpdateWidget(SurveyCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.survey.postId != widget.survey.postId) {
+      _isLiked = widget.survey.isLiked;
+      _likeCount = widget.survey.numOfLikes;
+    }
+  }
+
+  Future<void> _toggleLike() async {
+    if (_isLiking || widget.survey.postId == null) return;
+
+    setState(() => _isLiking = true);
+
+    // Optimistic update
+    final previousLiked = _isLiked;
+    final previousCount = _likeCount;
+    setState(() {
+      _isLiked = !_isLiked;
+      _likeCount = _isLiked ? _likeCount + 1 : (_likeCount > 0 ? _likeCount - 1 : 0);
+    });
+
+    try {
+      final response = await SurveyAPI.likeSurvey(widget.survey.postId!);
+      
+      if (response['ok'] != true) {
+        // Revert on failure
+        setState(() {
+          _isLiked = previousLiked;
+          _likeCount = previousCount;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response['message'] ?? 'Failed to update like'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } else {
+        // Update the survey model
+        widget.survey.isLiked = _isLiked;
+        widget.survey.numOfLikes = _likeCount;
+        widget.onLikeChanged?.call();
+      }
+    } catch (e) {
+      // Revert on error
+      setState(() {
+        _isLiked = previousLiked;
+        _likeCount = previousCount;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLiking = false);
+      }
+    }
+  }
 
   void _toggleExpanded() {
     setState(() {
@@ -85,7 +155,7 @@ class _SurveyCardState extends State<SurveyCard> {
               // HEADER: Avatar + Author Info
               Row(
                 children: [
-                  // Avatar
+                  // Avatar - Show profile picture or fallback to initials
                   Container(
                     width: 40,
                     height: 40,
@@ -93,19 +163,46 @@ class _SurveyCardState extends State<SurveyCard> {
                       color: AppColors.primaryText,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Center(
-                      child: Text(
-                        survey.creator.isNotEmpty 
-                            ? survey.creator.length >= 2 
-                                ? survey.creator.substring(0, 2).toUpperCase()
-                                : survey.creator[0].toUpperCase()
-                            : 'MC',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: survey.creatorProfileUrl != null && survey.creatorProfileUrl!.isNotEmpty
+                          ? Image.network(
+                              survey.creatorProfileUrl!,
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                // Fallback to initials if image fails to load
+                                return Center(
+                                  child: Text(
+                                    survey.creator.isNotEmpty 
+                                        ? survey.creator.length >= 2 
+                                            ? survey.creator.substring(0, 2).toUpperCase()
+                                            : survey.creator[0].toUpperCase()
+                                        : 'MC',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                );
+                              },
+                            )
+                          : Center(
+                              child: Text(
+                                survey.creator.isNotEmpty 
+                                    ? survey.creator.length >= 2 
+                                        ? survey.creator.substring(0, 2).toUpperCase()
+                                        : survey.creator[0].toUpperCase()
+                                    : 'MC',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -298,6 +395,67 @@ class _SurveyCardState extends State<SurveyCard> {
               ],
               
               const SizedBox(height: 16),
+              
+              // LIKE AND RESPONSES ROW
+              Row(
+                children: [
+                  // Like Button
+                  InkWell(
+                    onTap: _isLiking ? null : _toggleLike,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _isLiking
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Icon(
+                                  _isLiked ? Icons.favorite : Icons.favorite_border,
+                                  size: 20,
+                                  color: _isLiked ? Colors.red : AppColors.shadedPrimary,
+                                ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$_likeCount',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: _isLiked ? Colors.red : AppColors.shadedPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // Response Count
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.people_outline,
+                        size: 20,
+                        color: AppColors.shadedPrimary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${survey.responses} responses',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.shadedPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
               
               // TAKE SURVEY BUTTON
               SizedBox(

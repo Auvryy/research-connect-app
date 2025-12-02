@@ -11,9 +11,14 @@ class Survey {
   final List<String> tags; // up to 3
   final String targetAudience;
   final String creator;
+  final String? creatorProfileUrl; // Profile picture URL of the creator
   final DateTime createdAt;
   final bool status; // true = active, false = closed
+  final bool approved; // true = approved by admin, false = pending
+  final bool archived; // true = archived, false = active
   int responses; // number of responses
+  int numOfLikes; // number of likes
+  bool isLiked; // whether current user has liked this survey
   final List<Question> questions;
 
   Survey({
@@ -26,15 +31,31 @@ class Survey {
     required this.tags,
     required this.targetAudience,
     required this.creator,
+    this.creatorProfileUrl,
     required this.createdAt,
     required this.status,
+    this.approved = false, // default to false (pending)
+    this.archived = false, // default to false
     required this.questions,
     this.responses = 0, // default to 0
+    this.numOfLikes = 0, // default to 0
+    this.isLiked = false, // default to false
   });
 
   /// Convenience method to increment response count
   void addResponse() {
     responses++;
+  }
+
+  /// Toggle like status locally
+  void toggleLike() {
+    if (isLiked) {
+      isLiked = false;
+      numOfLikes = numOfLikes > 0 ? numOfLikes - 1 : 0;
+    } else {
+      isLiked = true;
+      numOfLikes++;
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -48,9 +69,14 @@ class Survey {
       'tags': tags,
       'targetAudience': targetAudience,
       'creator': creator,
+      'creatorProfileUrl': creatorProfileUrl,
       'createdAt': createdAt.toIso8601String(),
       'status': status,
+      'approved': approved,
+      'archived': archived,
       'responses': responses,
+      'num_of_likes': numOfLikes,
+      'is_liked': isLiked,
       'questions': questions.map((q) => q.toJson()).toList(),
     };
   }
@@ -66,9 +92,14 @@ class Survey {
       tags: List<String>.from(json['tags']),
       targetAudience: json['targetAudience'] as String,
       creator: json['creator'] as String,
+      creatorProfileUrl: json['creatorProfileUrl'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       status: json['status'] as bool,
+      approved: json['approved'] as bool? ?? false,
+      archived: json['archived'] as bool? ?? false,
       responses: json['responses'] as int,
+      numOfLikes: json['num_of_likes'] as int? ?? 0,
+      isLiked: json['is_liked'] as bool? ?? false,
       questions: (json['questions'] as List)
           .map((q) => Question.fromJson(q as Map<String, dynamic>))
           .toList(),

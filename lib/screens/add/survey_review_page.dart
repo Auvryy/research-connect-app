@@ -7,13 +7,27 @@ import 'package:inquira/widgets/primary_button.dart';
 import 'package:inquira/data/draft_service.dart';
 import 'package:inquira/data/api/survey_api.dart';
 
-class SurveyReviewPage extends StatelessWidget {
+class SurveyReviewPage extends StatefulWidget {
   final SurveyCreation surveyData;
 
   const SurveyReviewPage({
     super.key,
     required this.surveyData,
   });
+
+  @override
+  State<SurveyReviewPage> createState() => _SurveyReviewPageState();
+}
+
+class _SurveyReviewPageState extends State<SurveyReviewPage> {
+  final TextEditingController _bypassCodeController = TextEditingController();
+  bool _showBypassCodeField = false;
+
+  @override
+  void dispose() {
+    _bypassCodeController.dispose();
+    super.dispose();
+  }
 
   Widget _buildSectionHeader(String title) {
     return Padding(
@@ -172,6 +186,90 @@ class SurveyReviewPage extends StatelessWidget {
     );
   }
 
+  /// Build the bypass code section
+  Widget _buildBypassCodeSection() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.vpn_key, color: Colors.blue.shade700, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Have an approval bypass code?',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue.shade800,
+                  ),
+                ),
+              ),
+              Switch(
+                value: _showBypassCodeField,
+                onChanged: (value) {
+                  setState(() {
+                    _showBypassCodeField = value;
+                    if (!value) {
+                      _bypassCodeController.clear();
+                    }
+                  });
+                },
+                activeColor: Colors.blue.shade700,
+              ),
+            ],
+          ),
+          if (_showBypassCodeField) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _bypassCodeController,
+              decoration: InputDecoration(
+                hintText: 'Enter your bypass code',
+                filled: true,
+                fillColor: Colors.white,
+                prefixIcon: Icon(Icons.lock_open, color: Colors.blue.shade600),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.blue.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.blue.shade600, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'If you have a valid code, your survey will be published immediately without waiting for admin approval.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.blue.shade700,
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 4),
+            Text(
+              'Without a code, your survey will need admin approval before appearing in the feed.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.blue.shade600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   void _publishSurvey(BuildContext context) async {
     bool isDialogShowing = false;
     
@@ -188,10 +286,17 @@ class SurveyReviewPage extends StatelessWidget {
 
       print('Publishing survey to backend...');
       
+      // Set the bypass code if provided
+      final bypassCode = _bypassCodeController.text.trim();
+      if (bypassCode.isNotEmpty) {
+        widget.surveyData.bypassCode = bypassCode;
+        print('Bypass code provided: $bypassCode');
+      }
+      
       // Collect all question images that need to be uploaded
       Map<String, File> questionImages = {};
       
-      for (var question in surveyData.questions) {
+      for (var question in widget.surveyData.questions) {
         // Check if question has an image and it's a local file path
         if (question.imageUrl != null && 
             question.imageUrl!.isNotEmpty &&
@@ -209,10 +314,13 @@ class SurveyReviewPage extends StatelessWidget {
       print('Total images to upload: ${questionImages.length}');
       
       // Prepare survey data for backend
-      final backendData = surveyData.toBackendJson();
+      final backendData = widget.surveyData.toBackendJson();
       
       print('Survey data prepared. Sending to backend...');
       print('Data structure: ${backendData.keys.join(', ')}');
+      if (backendData.containsKey('post_code')) {
+        print('Bypass code included in submission');
+      }
       
       // Submit survey with images using FormData
       final result = await SurveyAPI.createSurvey(
@@ -232,19 +340,89 @@ class SurveyReviewPage extends StatelessWidget {
         // Success - clear draft
         await DraftService.clearDraft();
         
-        // NOTE: Don't save locally - backend is the source of truth
-        // This was causing duplicate surveys to appear
+        // Determine if bypass code was used (survey approved immediately)
+        final wasApprovedImmediately = bypassCode.isNotEmpty;
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Survey published successfully!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        // Show success dialog with appropriate message
+        if (context.mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 28),
+                  const SizedBox(width: 8),
+                  const Text('Survey Submitted!'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Your survey has been submitted successfully.',
+                    style: TextStyle(fontSize: 15),
+                  ),
+                  const SizedBox(height: 16),
+                  if (wasApprovedImmediately)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.verified, color: Colors.green.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Your survey has been approved and is now live in the public feed!',
+                              style: TextStyle(fontSize: 13, color: Colors.green.shade900),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.pending_actions, color: Colors.orange.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Your survey is pending admin approval before it appears in the public feed.',
+                              style: TextStyle(fontSize: 13, color: Colors.orange.shade900),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                  ),
+                  child: const Text('Got it!', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+        }
         
         // Navigate back to home
-        await Future.delayed(const Duration(milliseconds: 500));
         if (context.mounted) {
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
@@ -310,19 +488,22 @@ class SurveyReviewPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionHeader('Survey Information'),
-            _buildInfoItem('Title', surveyData.title, Icons.title),
-            _buildInfoItem('Caption', surveyData.caption, Icons.short_text),
-            _buildInfoItem('Description', surveyData.description, Icons.description),
+            _buildInfoItem('Title', widget.surveyData.title, Icons.title),
+            _buildInfoItem('Caption', widget.surveyData.caption, Icons.short_text),
+            _buildInfoItem('Description', widget.surveyData.description, Icons.description),
             _buildInfoItem(
-                'Time to Complete', '${surveyData.timeToComplete} minutes', Icons.timer),
-            _buildInfoItem('Tags', surveyData.tags.join(', '), Icons.label),
-            _buildInfoItem('Target Audience', surveyData.targetAudience.join(', '), Icons.people),
+                'Time to Complete', '${widget.surveyData.timeToComplete} minutes', Icons.timer),
+            _buildInfoItem('Tags', widget.surveyData.tags.join(', '), Icons.label),
+            _buildInfoItem('Target Audience', widget.surveyData.targetAudience.join(', '), Icons.people),
             const SizedBox(height: 24),
-            _buildSectionHeader('Questions (${surveyData.questions.length})'),
-            ...surveyData.questions
+            _buildSectionHeader('Questions (${widget.surveyData.questions.length})'),
+            ...widget.surveyData.questions
                 .asMap()
                 .entries
                 .map((entry) => _buildQuestionPreview(entry.value, entry.key)),
+            const SizedBox(height: 24),
+            // Bypass Code Section
+            _buildBypassCodeSection(),
           ],
         ),
       ),

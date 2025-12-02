@@ -2,7 +2,7 @@ import 'dio_client.dart';
 import '../user_info.dart';
 
 class AuthAPI {
-  /// Get current user data from backend
+  /// Get current user data from backend (basic info only)
   /// GET /api/auth/login_success
   static Future<Map<String, dynamic>> getUserData() async {
     try {
@@ -37,6 +37,42 @@ class AuthAPI {
       };
     } catch (e) {
       print('AuthAPI.getUserData: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  /// Get FULL user data including user's surveys/posts
+  /// GET /api/auth/user_data
+  /// Returns: { user_info: {...}, user_posts: [...] }
+  static Future<Map<String, dynamic>> getFullUserData() async {
+    try {
+      print('AuthAPI.getFullUserData: Fetching full user data from backend...');
+      await DioClient.init();
+      
+      final response = await DioClient.get('/user_data');
+      print('AuthAPI.getFullUserData: Response received: $response');
+      
+      if (response is Map<String, dynamic> && response['ok'] == true) {
+        final messageData = response['message'];
+        
+        // Backend returns: {message: {user_info: {...}, user_posts: [...]}}
+        if (messageData is Map<String, dynamic>) {
+          return {
+            'ok': true,
+            'data': messageData,
+          };
+        }
+      }
+      
+      return {
+        'ok': false,
+        'message': 'Failed to get user data',
+      };
+    } catch (e) {
+      print('AuthAPI.getFullUserData: Error: $e');
       return {
         'ok': false,
         'message': e.toString(),
