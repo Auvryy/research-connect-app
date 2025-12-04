@@ -266,14 +266,17 @@ class QuestionWidget extends StatelessWidget {
 
   Widget _buildRating() {
     final rating = (value is String) ? int.tryParse(value) ?? 0 : (value as int? ?? 0);
+    final maxStars = question.maxRating > 0 ? question.maxRating : 5;
     
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(5, (index) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 4,
+      runSpacing: 8,
+      children: List.generate(maxStars, (index) {
         return IconButton(
           icon: Icon(
             index < rating ? Icons.star : Icons.star_border,
-            size: 40,
+            size: maxStars > 5 ? 32 : 40,
           ),
           color: Colors.amber,
           onPressed: () => onChanged((index + 1).toString()),

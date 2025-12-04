@@ -650,7 +650,7 @@ class _QuestionEditorState extends State<QuestionEditor> {
                 value: _maxRating,
                 underline: const SizedBox(),
                 icon: const Icon(Icons.arrow_drop_down),
-                items: List.generate(5, (index) {
+                items: List.generate(10, (index) {
                   final stars = index + 1;
                   return DropdownMenuItem<int>(
                     value: stars,

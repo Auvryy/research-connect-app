@@ -25,16 +25,14 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
 
   final List<int> _availableTimes = [5, 15, 30, 45, 60];
   final List<String> _availableTags = [
-    'Technology',
-    'Psychology',
+    'Academic',
     'Health',
-    'Education',
+    'Technology',
+    'Entertainment',
+    'Lifestyle',
     'Business',
-    'Science',
-    'Social',
-    'Environment',
-    'Politics',
-    'Art',
+    'Research',
+    'Marketing',
   ];
 
   @override

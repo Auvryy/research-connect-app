@@ -796,24 +796,39 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
 
   Widget _buildRatingInput(String sectionId, SurveyQuestion question, dynamic value) {
     final rating = int.tryParse(value?.toString() ?? '0') ?? 0;
+    final maxStars = question.maxRating > 0 ? question.maxRating : 5;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: List.generate(5, (index) {
-          final starValue = index + 1;
-          final isSelected = starValue <= rating;
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 80),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: AppColors.inputColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: maxStars > 5 ? 4 : 8,
+          runSpacing: 8,
+          children: List.generate(maxStars, (index) {
+            final starValue = index + 1;
+            final isSelected = starValue <= rating;
 
-          return GestureDetector(
-            onTap: () => _updateResponse(sectionId, question.questionId, starValue.toString()),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(8),
-              child: Icon(isSelected ? Icons.star_rounded : Icons.star_outline_rounded, size: 44, color: isSelected ? Colors.amber[600] : Colors.grey[300]),
-            ),
-          );
-        }),
+            return GestureDetector(
+              onTap: () => _updateResponse(sectionId, question.questionId, starValue.toString()),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
+                  size: maxStars > 7 ? 32 : (maxStars > 5 ? 38 : 44),
+                  color: isSelected ? Colors.amber[600] : Colors.grey[300],
+                ),
+              ),
+            );
+          }),
+        ),
       ),
     );
   }

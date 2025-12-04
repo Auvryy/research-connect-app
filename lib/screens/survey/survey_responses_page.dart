@@ -426,16 +426,23 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
     final questionText = data['question_text'] as String? ?? 'Question';
     final answerData = data['answer_data'] as Map<String, dynamic>? ?? {};
 
-    // Calculate average rating and total
+    // Calculate average rating, total, and determine max rating from data
     int total = 0;
     double weightedSum = 0;
+    int maxRating = 5; // Default to 5
     answerData.forEach((key, value) {
       final rating = int.tryParse(key) ?? 0;
       final count = value as int? ?? 0;
       total += count;
       weightedSum += rating * count;
+      // Track the highest rating value found in responses
+      if (rating > maxRating) maxRating = rating;
     });
     final averageRating = total > 0 ? (weightedSum / total) : 0.0;
+    // Ensure maxRating is at least the rounded average
+    if (averageRating.round() > maxRating) maxRating = averageRating.round();
+    // Cap at 10 stars max for display
+    if (maxRating > 10) maxRating = 10;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -462,13 +469,23 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
               // Average rating display
               Row(
                 children: [
-                  ...List.generate(5, (index) {
-                    return Icon(
-                      index < averageRating.round() ? Icons.star : Icons.star_border,
-                      color: Colors.amber,
-                      size: 28,
-                    );
-                  }),
+                  // Use Wrap for many stars, Row for few
+                  if (maxRating <= 5)
+                    ...List.generate(maxRating, (index) {
+                      return Icon(
+                        index < averageRating.round() ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 28,
+                      );
+                    })
+                  else
+                    ...List.generate(maxRating, (index) {
+                      return Icon(
+                        index < averageRating.round() ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 20,
+                      );
+                    }),
                   const SizedBox(width: 12),
                   Text(
                     averageRating.toStringAsFixed(1),
@@ -479,7 +496,7 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
                     ),
                   ),
                   Text(
-                    ' / 5',
+                    ' / $maxRating',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[600],

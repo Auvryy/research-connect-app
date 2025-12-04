@@ -70,6 +70,7 @@ class SurveyQuestion {
   final List<String> choices;
   final int minChoice;
   final int maxChoice;
+  final int maxRating;
   final String? imageUrl;
   final String? videoUrl;
 
@@ -83,6 +84,7 @@ class SurveyQuestion {
     required this.choices,
     required this.minChoice,
     required this.maxChoice,
+    this.maxRating = 5,
     this.imageUrl,
     this.videoUrl,
   });
@@ -99,6 +101,19 @@ class SurveyQuestion {
       }
     }
     
+    // Safely parse maxRating - backend sends as int but handle string case too
+    int maxRating = 5;
+    final maxRatingValue = json['question_maxRating'];
+    if (maxRatingValue != null) {
+      if (maxRatingValue is int) {
+        maxRating = maxRatingValue;
+      } else if (maxRatingValue is String) {
+        maxRating = int.tryParse(maxRatingValue) ?? 5;
+      }
+    }
+    // Ensure maxRating is at least 1
+    if (maxRating < 1) maxRating = 5;
+    
     return SurveyQuestion(
       pkQuestionId: json['pk_question_id'] ?? 0,
       questionId: json['question_id'] ?? '',
@@ -109,6 +124,7 @@ class SurveyQuestion {
       choices: List<String>.from(json['question_choices'] ?? []),
       minChoice: json['question_minChoice'] ?? 1,
       maxChoice: json['question_maxChoice'] ?? 1,
+      maxRating: maxRating,
       imageUrl: imageUrl,
       videoUrl: json['question_url'],
     );
