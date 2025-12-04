@@ -9,12 +9,14 @@ class QuestionEditor extends StatefulWidget {
   final SurveyQuestion question;
   final Function(SurveyQuestion) onQuestionUpdated;
   final VoidCallback onDelete;
+  final VoidCallback? onDuplicate;
 
   const QuestionEditor({
     super.key,
     required this.question,
     required this.onQuestionUpdated,
     required this.onDelete,
+    this.onDuplicate,
   });
 
   @override
@@ -747,6 +749,13 @@ class _QuestionEditorState extends State<QuestionEditor> {
                   ),
                 ),
                 const Spacer(),
+                if (widget.onDuplicate != null)
+                  IconButton(
+                    icon: const Icon(Icons.copy_outlined, size: 20),
+                    color: AppColors.accent1,
+                    onPressed: widget.onDuplicate,
+                    tooltip: 'Duplicate question',
+                  ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, size: 20),
                   color: AppColors.error,
@@ -826,6 +835,32 @@ class _QuestionEditorState extends State<QuestionEditor> {
                           color: Colors.grey[600],
                           fontStyle: FontStyle.italic,
                         ),
+                      ),
+                    ),
+                  ),
+
+                // Number input placeholder
+                if (widget.question.type == QuestionType.number)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.numbers, color: Colors.grey[500], size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Number input',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -921,6 +956,8 @@ class _QuestionEditorState extends State<QuestionEditor> {
         return 'DATE';
       case QuestionType.email:
         return 'EMAIL';
+      case QuestionType.number:
+        return 'NUMBER';
     }
   }
 }

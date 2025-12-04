@@ -119,6 +119,8 @@ class _SurveyReviewPageState extends State<SurveyReviewPage> {
         return 'Date';
       case QuestionType.email:
         return 'Email';
+      case QuestionType.number:
+        return 'Number';
     }
   }
 

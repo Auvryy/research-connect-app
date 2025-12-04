@@ -134,10 +134,33 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
     }
   }
 
+  /// Check if at least one question has been answered across all sections
+  bool _hasAtLeastOneAnswer() {
+    for (final sectionEntry in _responses.entries) {
+      for (final questionEntry in sectionEntry.value.entries) {
+        final value = questionEntry.value;
+        if (value is List && value.isNotEmpty) {
+          return true;
+        } else if (value != null && value.toString().isNotEmpty) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   Future<void> _submitSurvey() async {
     if (!_canGoNext()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please answer all required questions')),
+      );
+      return;
+    }
+
+    // Check if at least one question is answered (even if nothing is required)
+    if (!_hasAtLeastOneAnswer()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please answer at least one question before submitting')),
       );
       return;
     }
@@ -172,11 +195,13 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
           final value = questionEntry.value;
           if (value is List) {
             if (value.isNotEmpty) {
-              cleanedResponses[sectionEntry.key]![questionEntry.key] = List<String>.from(value);
+              // Safely convert all elements to strings
+              cleanedResponses[sectionEntry.key]![questionEntry.key] = 
+                  value.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
             }
           } else if (value != null && value.toString().isNotEmpty) {
-            // For date fields, ensure proper format
-            cleanedResponses[sectionEntry.key]![questionEntry.key] = value;
+            // For all fields, convert to string explicitly
+            cleanedResponses[sectionEntry.key]![questionEntry.key] = value.toString();
           }
         }
         

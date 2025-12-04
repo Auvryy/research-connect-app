@@ -114,6 +114,40 @@ class _QuestionsPageState extends State<QuestionsPage> {
     await DraftService.saveDraft(_surveyData);
   }
 
+  Future<void> _duplicateQuestion(String questionId) async {
+    final originalIndex = _surveyData.questions.indexWhere((q) => q.id == questionId);
+    if (originalIndex == -1) return;
+    
+    final original = _surveyData.questions[originalIndex];
+    final duplicated = original.copyWith(
+      id: _generateQuestionId(),
+      text: '${original.text} (copy)',
+      order: _surveyData.questions.length,
+    );
+    
+    setState(() {
+      // Insert after the original question
+      _surveyData.questions.insert(originalIndex + 1, duplicated);
+      // Update order for all questions
+      for (var i = 0; i < _surveyData.questions.length; i++) {
+        _surveyData.questions[i] = _surveyData.questions[i].copyWith(order: i);
+      }
+    });
+    
+    // Auto-save draft
+    await DraftService.saveDraft(_surveyData);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Question duplicated!'),
+          backgroundColor: AppColors.green,
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
   void _addSection() {
     setState(() {
       final newOrder = _surveyData.sections.length + 1;
@@ -619,6 +653,7 @@ class _QuestionsPageState extends State<QuestionsPage> {
                             question: question,
                             onQuestionUpdated: _updateQuestion,
                             onDelete: () => _deleteQuestion(question.id),
+                            onDuplicate: () => _duplicateQuestion(question.id),
                           ),
                         );
                       },
