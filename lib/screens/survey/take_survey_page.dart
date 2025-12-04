@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/api/survey_api.dart';
 import 'package:inquira/models/survey_question.dart';
@@ -159,9 +160,30 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     }
   }
 
+  /// Check if at least one question has been answered across all sections
+  bool _hasAtLeastOneAnswer() {
+    for (final sectionEntry in _responses.entries) {
+      for (final questionEntry in sectionEntry.value.entries) {
+        final value = questionEntry.value;
+        if (value is List && value.isNotEmpty) {
+          return true;
+        } else if (value != null && value.toString().isNotEmpty) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   Future<void> _submitSurvey() async {
     if (!_isSectionComplete(_currentSectionIndex)) {
       _showSnackBar('Please answer all required questions', isError: true);
+      return;
+    }
+
+    // Check if at least one question is answered (even if nothing is required)
+    if (!_hasAtLeastOneAnswer()) {
+      _showSnackBar('Please answer at least one question before submitting', isError: true);
       return;
     }
 
@@ -184,12 +206,14 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
           if (value is List) {
             // Only include non-empty checkbox lists
             if (value.isNotEmpty) {
-              cleanedResponses[sectionEntry.key]![questionEntry.key] = List<String>.from(value);
+              // Safely convert all elements to strings
+              cleanedResponses[sectionEntry.key]![questionEntry.key] = 
+                  value.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
             }
             // Empty checkbox lists are not included - backend will skip them
           } else if (value != null && value.toString().isNotEmpty) {
-            // Only include non-empty string values
-            cleanedResponses[sectionEntry.key]![questionEntry.key] = value;
+            // Only include non-empty string values - convert to string explicitly
+            cleanedResponses[sectionEntry.key]![questionEntry.key] = value.toString();
           }
           // Empty/null values are NOT included - backend handles missing keys gracefully
           // This prevents date validation errors for optional empty date fields
@@ -625,6 +649,8 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
         return _buildDateInput(sectionId, question, value);
       case 'email':
         return _buildEmailInput(sectionId, question, value);
+      case 'number':
+        return _buildNumberInput(sectionId, question, value);
       default:
         return Text('Unsupported type: ${question.questionType}');
     }
@@ -701,7 +727,11 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   }
 
   Widget _buildCheckboxInput(String sectionId, SurveyQuestion question, dynamic value) {
-    final selectedValues = (value as List<dynamic>?)?.cast<String>() ?? [];
+    // Safely convert value to List<String> handling List<dynamic> case
+    List<String> selectedValues = [];
+    if (value != null && value is List) {
+      selectedValues = value.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+    }
 
     return Column(
       children: question.choices.map((choice) {
@@ -766,24 +796,39 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
 
   Widget _buildRatingInput(String sectionId, SurveyQuestion question, dynamic value) {
     final rating = int.tryParse(value?.toString() ?? '0') ?? 0;
+    final maxStars = question.maxRating > 0 ? question.maxRating : 5;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: List.generate(5, (index) {
-          final starValue = index + 1;
-          final isSelected = starValue <= rating;
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 80),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: AppColors.inputColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: maxStars > 5 ? 4 : 8,
+          runSpacing: 8,
+          children: List.generate(maxStars, (index) {
+            final starValue = index + 1;
+            final isSelected = starValue <= rating;
 
-          return GestureDetector(
-            onTap: () => _updateResponse(sectionId, question.questionId, starValue.toString()),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(8),
-              child: Icon(isSelected ? Icons.star_rounded : Icons.star_outline_rounded, size: 44, color: isSelected ? Colors.amber[600] : Colors.grey[300]),
-            ),
-          );
-        }),
+            return GestureDetector(
+              onTap: () => _updateResponse(sectionId, question.questionId, starValue.toString()),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
+                  size: maxStars > 7 ? 32 : (maxStars > 5 ? 38 : 44),
+                  color: isSelected ? Colors.amber[600] : Colors.grey[300],
+                ),
+              ),
+            );
+          }),
+        ),
       ),
     );
   }
@@ -839,6 +884,27 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     );
   }
 
+  Widget _buildNumberInput(String sectionId, SurveyQuestion question, dynamic value) {
+    final textValue = value?.toString() ?? '';
+    return TextField(
+      controller: TextEditingController(text: textValue)..selection = TextSelection.collapsed(offset: textValue.length),
+      onChanged: (text) => _updateResponse(sectionId, question.questionId, text),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
+      ],
+      decoration: InputDecoration(
+        hintText: 'Enter a number (e.g., 42, -10, 3.14)',
+        hintStyle: TextStyle(color: Colors.grey[400]),
+        prefixIcon: Icon(Icons.numbers, color: Colors.grey[500]),
+        filled: true,
+        fillColor: AppColors.inputColor,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.accent1, width: 2)),
+        contentPadding: const EdgeInsets.all(16),
+      ),
+    );
+  }
   Widget _buildBottomNavigation(bool isLastSection, bool canProceed) {
     return Container(
       padding: const EdgeInsets.all(20),

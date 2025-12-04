@@ -201,6 +201,7 @@ class QuestionAnswer {
       case QuestionType.longText:
       case QuestionType.email:
       case QuestionType.date:
+      case QuestionType.number:
         return textAnswer != null && textAnswer!.isNotEmpty;
       case QuestionType.radioButton:
       case QuestionType.dropdown:
@@ -219,6 +220,7 @@ class QuestionAnswer {
       case QuestionType.longText:
       case QuestionType.email:
       case QuestionType.date:
+      case QuestionType.number:
         return textAnswer ?? '';
       case QuestionType.radioButton:
       case QuestionType.dropdown:
@@ -237,6 +239,7 @@ class QuestionAnswer {
       case QuestionType.longText:
       case QuestionType.email:
       case QuestionType.date:
+      case QuestionType.number:
         return textAnswer;
       case QuestionType.radioButton:
       case QuestionType.dropdown:
@@ -281,6 +284,7 @@ class QuestionAnswer {
       case QuestionType.longText:
       case QuestionType.email:
       case QuestionType.date:
+      case QuestionType.number:
         json['answer'] = textAnswer;
         break;
       case QuestionType.radioButton:
@@ -344,6 +348,13 @@ class QuestionAnswer {
   factory QuestionAnswer.date(String answer) {
     return QuestionAnswer(
       questionType: QuestionType.date,
+      textAnswer: answer,
+    );
+  }
+
+  factory QuestionAnswer.number(String answer) {
+    return QuestionAnswer(
+      questionType: QuestionType.number,
       textAnswer: answer,
     );
   }

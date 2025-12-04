@@ -106,7 +106,11 @@ class _HomeFeedState extends State<HomeFeed> {
       print('HomeFeed: Fetching surveys from backend...');
       final backendData = await SurveyAPI.getAllSurveys();
       
-      final surveys = backendData.map((json) => _parseSurveyFromBackend(json)).toList();
+      final surveys = backendData
+          .map((json) => _parseSurveyFromBackend(json))
+          // Filter out archived surveys (safety measure - backend should already filter)
+          .where((survey) => !survey.archived)
+          .toList();
       print('HomeFeed: Loaded ${surveys.length} surveys from backend');
       
       if (mounted) {
@@ -126,7 +130,11 @@ class _HomeFeedState extends State<HomeFeed> {
         if (mounted) {
           try {
             final retryData = await SurveyAPI.getAllSurveys();
-            final surveys = retryData.map((json) => _parseSurveyFromBackend(json)).toList();
+            final surveys = retryData
+                .map((json) => _parseSurveyFromBackend(json))
+                // Filter out archived surveys (safety measure)
+                .where((survey) => !survey.archived)
+                .toList();
             if (mounted) {
               setState(() {
                 _allSurveys = surveys;

@@ -156,6 +156,30 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
     final datesData = _responseData!['dates_data'] as Map<String, dynamic>?;
     final textData = _responseData!['text_data'] as Map<String, dynamic>?;
 
+    // Separate number responses from text responses
+    Map<String, dynamic>? numberData;
+    Map<String, dynamic>? filteredTextData;
+    
+    if (textData != null && textData.isNotEmpty) {
+      numberData = {};
+      filteredTextData = {};
+      
+      for (final entry in textData.entries) {
+        final data = entry.value as Map<String, dynamic>?;
+        final questionType = data?['type'] as String? ?? '';
+        
+        if (questionType == 'number') {
+          numberData[entry.key] = entry.value;
+        } else {
+          filteredTextData[entry.key] = entry.value;
+        }
+      }
+      
+      // Set to null if empty to match the original null check behavior
+      if (numberData.isEmpty) numberData = null;
+      if (filteredTextData.isEmpty) filteredTextData = null;
+    }
+
     return RefreshIndicator(
       onRefresh: _loadResponses,
       child: SingleChildScrollView(
@@ -192,11 +216,19 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
               const SizedBox(height: 20),
             ],
 
-            // Text Questions Section
-            if (textData != null && textData.isNotEmpty) ...[
+            // Number Questions Section (NEW - separated from text)
+            if (numberData != null && numberData.isNotEmpty) ...[
+              _buildSectionHeader('Number Responses', Icons.numbers),
+              const SizedBox(height: 12),
+              ...numberData.entries.map((entry) => _buildNumberQuestionCard(entry.key, entry.value)),
+              const SizedBox(height: 20),
+            ],
+
+            // Text Questions Section (now filtered to exclude numbers)
+            if (filteredTextData != null && filteredTextData.isNotEmpty) ...[
               _buildSectionHeader('Text Responses', Icons.text_fields),
               const SizedBox(height: 12),
-              ...textData.entries.map((entry) => _buildTextQuestionCard(entry.key, entry.value)),
+              ...filteredTextData.entries.map((entry) => _buildTextQuestionCard(entry.key, entry.value)),
               const SizedBox(height: 20),
             ],
 
@@ -204,7 +236,8 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
             if ((choicesData == null || choicesData.isEmpty) &&
                 (ratingsData == null || ratingsData.isEmpty) &&
                 (datesData == null || datesData.isEmpty) &&
-                (textData == null || textData.isEmpty))
+                (numberData == null || numberData.isEmpty) &&
+                (filteredTextData == null || filteredTextData.isEmpty))
               _buildNoQuestionsMessage(),
           ],
         ),
@@ -393,16 +426,23 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
     final questionText = data['question_text'] as String? ?? 'Question';
     final answerData = data['answer_data'] as Map<String, dynamic>? ?? {};
 
-    // Calculate average rating and total
+    // Calculate average rating, total, and determine max rating from data
     int total = 0;
     double weightedSum = 0;
+    int maxRating = 5; // Default to 5
     answerData.forEach((key, value) {
       final rating = int.tryParse(key) ?? 0;
       final count = value as int? ?? 0;
       total += count;
       weightedSum += rating * count;
+      // Track the highest rating value found in responses
+      if (rating > maxRating) maxRating = rating;
     });
     final averageRating = total > 0 ? (weightedSum / total) : 0.0;
+    // Ensure maxRating is at least the rounded average
+    if (averageRating.round() > maxRating) maxRating = averageRating.round();
+    // Cap at 10 stars max for display
+    if (maxRating > 10) maxRating = 10;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -429,13 +469,23 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
               // Average rating display
               Row(
                 children: [
-                  ...List.generate(5, (index) {
-                    return Icon(
-                      index < averageRating.round() ? Icons.star : Icons.star_border,
-                      color: Colors.amber,
-                      size: 28,
-                    );
-                  }),
+                  // Use Wrap for many stars, Row for few
+                  if (maxRating <= 5)
+                    ...List.generate(maxRating, (index) {
+                      return Icon(
+                        index < averageRating.round() ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 28,
+                      );
+                    })
+                  else
+                    ...List.generate(maxRating, (index) {
+                      return Icon(
+                        index < averageRating.round() ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 20,
+                      );
+                    }),
                   const SizedBox(width: 12),
                   Text(
                     averageRating.toStringAsFixed(1),
@@ -446,7 +496,7 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
                     ),
                   ),
                   Text(
-                    ' / 5',
+                    ' / $maxRating',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[600],
@@ -640,6 +690,158 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildNumberQuestionCard(String questionId, Map<String, dynamic> data) {
+    final questionText = data['question_text'] as String? ?? 'Question';
+    final answerData = data['answer_data'] as List<dynamic>? ?? [];
+
+    // Calculate statistics for number responses
+    final List<double> numericValues = [];
+    for (final answer in answerData) {
+      final parsed = double.tryParse(answer?.toString() ?? '');
+      if (parsed != null) {
+        numericValues.add(parsed);
+      }
+    }
+
+    double? average;
+    double? min;
+    double? max;
+    double? sum;
+
+    if (numericValues.isNotEmpty) {
+      sum = numericValues.reduce((a, b) => a + b);
+      average = sum / numericValues.length;
+      min = numericValues.reduce((a, b) => a < b ? a : b);
+      max = numericValues.reduce((a, b) => a > b ? a : b);
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.numbers, size: 20, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    questionText,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${answerData.length} responses',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.blue[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (answerData.isEmpty)
+              Text(
+                'No responses yet',
+                style: TextStyle(color: Colors.grey[500], fontStyle: FontStyle.italic),
+              )
+            else ...[
+              // Statistics summary
+              if (numericValues.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatItem('Average', average!.toStringAsFixed(2)),
+                      _buildStatItem('Min', min!.toStringAsFixed(2)),
+                      _buildStatItem('Max', max!.toStringAsFixed(2)),
+                      _buildStatItem('Sum', sum!.toStringAsFixed(2)),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 12),
+              // Individual responses
+              ...answerData.take(10).map((response) {
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.tag, size: 16, color: Colors.grey[500]),
+                      const SizedBox(width: 8),
+                      Text(
+                        response?.toString() ?? '',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              if (answerData.length > 10)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '... and ${answerData.length - 10} more responses',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue[800],
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.blue[600],
+          ),
+        ),
+      ],
     );
   }
 

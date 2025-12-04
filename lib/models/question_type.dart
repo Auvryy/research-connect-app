@@ -7,6 +7,7 @@ enum QuestionType {
   dropdown,
   date,
   email,
+  number,
 }
 
 extension QuestionTypeExtension on QuestionType {
@@ -20,7 +21,7 @@ extension QuestionTypeExtension on QuestionType {
   }
 
   /// Convert to backend string format matching Q_TYPE_WEB
-  /// Backend expects: ("shortText", "longText", "radioButton", "checkBox", "rating", "dropdown", "date", "email")
+  /// Backend expects: ("shortText", "longText", "radioButton", "checkBox", "rating", "dropdown", "date", "email", "number")
   String toBackendString() {
     switch (this) {
       case QuestionType.shortText:
@@ -39,6 +40,8 @@ extension QuestionTypeExtension on QuestionType {
         return 'date';
       case QuestionType.email:
         return 'email';
+      case QuestionType.number:
+        return 'number';
     }
   }
 
@@ -61,6 +64,8 @@ extension QuestionTypeExtension on QuestionType {
         return 'Date Picker';
       case QuestionType.email:
         return 'Email Address';
+      case QuestionType.number:
+        return 'Number Input';
     }
   }
   

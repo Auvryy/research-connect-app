@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:inquira/models/survey_question.dart';
 import 'package:inquira/constants/colors.dart';
 
@@ -132,6 +133,8 @@ class QuestionWidget extends StatelessWidget {
         return _buildDatePicker(context);
       case 'email':
         return _buildEmailInput();
+      case 'number':
+        return _buildNumberInput();
       case 'yesNo':
         return _buildYesNo();
       default:
@@ -141,7 +144,7 @@ class QuestionWidget extends StatelessWidget {
 
   Widget _buildShortText() {
     return TextFormField(
-      initialValue: value as String? ?? '',
+      initialValue: value?.toString() ?? '',
       onChanged: onChanged,
       decoration: InputDecoration(
         hintText: 'Your answer',
@@ -158,7 +161,7 @@ class QuestionWidget extends StatelessWidget {
 
   Widget _buildLongText() {
     return TextFormField(
-      initialValue: value as String? ?? '',
+      initialValue: value?.toString() ?? '',
       onChanged: onChanged,
       maxLines: 4,
       decoration: InputDecoration(
@@ -175,12 +178,13 @@ class QuestionWidget extends StatelessWidget {
   }
 
   Widget _buildRadioButtons() {
+    final groupVal = value?.toString();
     return Column(
       children: question.choices.map((choice) {
         return RadioListTile<String>(
           title: Text(choice),
           value: choice,
-          groupValue: value as String?,
+          groupValue: groupVal,
           activeColor: AppColors.primary,
           contentPadding: EdgeInsets.zero,
           onChanged: (newValue) => onChanged(newValue),
@@ -190,7 +194,11 @@ class QuestionWidget extends StatelessWidget {
   }
 
   Widget _buildCheckboxes() {
-    final selectedValues = (value as List<String>?) ?? [];
+    // Safely convert value to List<String> handling List<dynamic> case
+    List<String> selectedValues = [];
+    if (value != null && value is List) {
+      selectedValues = (value as List).map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+    }
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,14 +266,17 @@ class QuestionWidget extends StatelessWidget {
 
   Widget _buildRating() {
     final rating = (value is String) ? int.tryParse(value) ?? 0 : (value as int? ?? 0);
+    final maxStars = question.maxRating > 0 ? question.maxRating : 5;
     
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(5, (index) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 4,
+      runSpacing: 8,
+      children: List.generate(maxStars, (index) {
         return IconButton(
           icon: Icon(
             index < rating ? Icons.star : Icons.star_border,
-            size: 40,
+            size: maxStars > 5 ? 32 : 40,
           ),
           color: Colors.amber,
           onPressed: () => onChanged((index + 1).toString()),
@@ -306,7 +317,7 @@ class QuestionWidget extends StatelessWidget {
 
   Widget _buildEmailInput() {
     return TextFormField(
-      initialValue: value as String? ?? '',
+      initialValue: value?.toString() ?? '',
       onChanged: onChanged,
       keyboardType: TextInputType.emailAddress,
       decoration: InputDecoration(
@@ -322,14 +333,37 @@ class QuestionWidget extends StatelessWidget {
     );
   }
 
+  Widget _buildNumberInput() {
+    return TextFormField(
+      initialValue: value?.toString() ?? '',
+      onChanged: onChanged,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
+      ],
+      decoration: InputDecoration(
+        hintText: 'Enter a number (e.g., 42, -10, 3.14)',
+        filled: true,
+        fillColor: AppColors.inputColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+        prefixIcon: Icon(Icons.numbers, color: Colors.grey[500]),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+    );
+  }
+
   Widget _buildYesNo() {
+    final groupVal = value?.toString();
     return Row(
       children: [
         Expanded(
           child: RadioListTile<String>(
             title: const Text('Yes'),
             value: 'Yes',
-            groupValue: value as String?,
+            groupValue: groupVal,
             onChanged: (newValue) => onChanged(newValue),
           ),
         ),
@@ -337,7 +371,7 @@ class QuestionWidget extends StatelessWidget {
           child: RadioListTile<String>(
             title: const Text('No'),
             value: 'No',
-            groupValue: value as String?,
+            groupValue: groupVal,
             onChanged: (newValue) => onChanged(newValue),
           ),
         ),

@@ -68,6 +68,8 @@ class _QuestionTypeCard extends StatelessWidget {
         return 'Date';
       case QuestionType.email:
         return 'Email';
+      case QuestionType.number:
+        return 'Number';
     }
   }
 
@@ -89,6 +91,8 @@ class _QuestionTypeCard extends StatelessWidget {
         return Icons.calendar_today;
       case QuestionType.email:
         return Icons.email;
+      case QuestionType.number:
+        return Icons.numbers;
     }
   }
 
