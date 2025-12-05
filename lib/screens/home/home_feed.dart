@@ -22,10 +22,18 @@ class _HomeFeedState extends State<HomeFeed> {
   bool _hasLoadedOnce = false;
   final TextEditingController _searchController = TextEditingController();
   bool _showSearchResults = false;
+  
+  // Pagination state
+  int _currentPage = 1;
+  static const int _perPage = 10;
+  bool _isLoadingMore = false;
+  bool _hasMoreData = true;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     // Delay slightly to ensure network/auth is ready after login
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadSurveys();
@@ -35,7 +43,53 @@ class _HomeFeedState extends State<HomeFeed> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Listen to scroll events for infinite scrolling
+  void _onScroll() {
+    if (_scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent - 200) {
+      // Near bottom, load more if not already loading and has more data
+      if (!_isLoadingMore && _hasMoreData && !_showSearchResults) {
+        _loadMoreSurveys();
+      }
+    }
+  }
+
+  /// Load more surveys (next page)
+  Future<void> _loadMoreSurveys() async {
+    if (_isLoadingMore || !_hasMoreData) return;
+    
+    setState(() => _isLoadingMore = true);
+    
+    try {
+      final nextPage = _currentPage + 1;
+      print('HomeFeed: Loading more surveys, page $nextPage...');
+      final backendData = await SurveyAPI.getAllSurveys(page: nextPage, perPage: _perPage);
+      
+      final newSurveys = backendData
+          .map((json) => _parseSurveyFromBackend(json))
+          .where((survey) => !survey.archived)
+          .toList();
+      
+      if (mounted) {
+        setState(() {
+          _allSurveys.addAll(newSurveys);
+          _currentPage = nextPage;
+          _isLoadingMore = false;
+          // If we got fewer than perPage, there's no more data
+          _hasMoreData = newSurveys.length >= _perPage;
+        });
+        print('HomeFeed: Loaded ${newSurveys.length} more surveys. Total: ${_allSurveys.length}');
+      }
+    } catch (e) {
+      print('HomeFeed: Error loading more surveys: $e');
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+      }
+    }
   }
 
   Future<void> _searchSurveys(String query) async {
@@ -98,13 +152,17 @@ class _HomeFeedState extends State<HomeFeed> {
       setState(() {
         _isLoading = true;
         _errorMessage = null;
+        // Reset pagination when doing fresh load
+        _currentPage = 1;
+        _hasMoreData = true;
+        _allSurveys = [];
       });
     }
     
     try {
-      // Fetch surveys from backend ONLY - no local storage
-      print('HomeFeed: Fetching surveys from backend...');
-      final backendData = await SurveyAPI.getAllSurveys();
+      // Fetch surveys from backend with pagination
+      print('HomeFeed: Fetching surveys from backend (page 1)...');
+      final backendData = await SurveyAPI.getAllSurveys(page: 1, perPage: _perPage);
       
       final surveys = backendData
           .map((json) => _parseSurveyFromBackend(json))
@@ -118,6 +176,9 @@ class _HomeFeedState extends State<HomeFeed> {
           _allSurveys = surveys;
           _isLoading = false;
           _hasLoadedOnce = true;
+          _currentPage = 1;
+          // If we got fewer than perPage, there's no more data
+          _hasMoreData = surveys.length >= _perPage;
         });
       }
     } catch (e) {
@@ -129,7 +190,7 @@ class _HomeFeedState extends State<HomeFeed> {
         await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
           try {
-            final retryData = await SurveyAPI.getAllSurveys();
+            final retryData = await SurveyAPI.getAllSurveys(page: 1, perPage: _perPage);
             final surveys = retryData
                 .map((json) => _parseSurveyFromBackend(json))
                 // Filter out archived surveys (safety measure)
@@ -140,6 +201,8 @@ class _HomeFeedState extends State<HomeFeed> {
                 _allSurveys = surveys;
                 _isLoading = false;
                 _hasLoadedOnce = true;
+                _currentPage = 1;
+                _hasMoreData = surveys.length >= _perPage;
               });
             }
             return;
@@ -483,8 +546,20 @@ class _HomeFeedState extends State<HomeFeed> {
                                     ),
                                   Expanded(
                                     child: ListView.builder(
-                                      itemCount: displaySurveys.length,
+                                      controller: _scrollController,
+                                      itemCount: displaySurveys.length + (_hasMoreData && !_showSearchResults ? 1 : 0),
                                       itemBuilder: (context, index) {
+                                        // Show loading indicator at the bottom
+                                        if (index == displaySurveys.length) {
+                                          return Padding(
+                                            padding: const EdgeInsets.all(16),
+                                            child: Center(
+                                              child: _isLoadingMore
+                                                  ? const CircularProgressIndicator()
+                                                  : const SizedBox.shrink(),
+                                            ),
+                                          );
+                                        }
                                         final survey = displaySurveys[index];
                                         return SurveyCard(survey: survey);
                                       },

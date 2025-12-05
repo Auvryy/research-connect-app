@@ -61,7 +61,7 @@ class _QuestionTypeCard extends StatelessWidget {
       case QuestionType.checkBox:
         return 'Multiple Choice';
       case QuestionType.rating:
-        return 'Rating (1-5)';
+        return 'Rating (1-10)';
       case QuestionType.dropdown:
         return 'Dropdown';
       case QuestionType.date:
