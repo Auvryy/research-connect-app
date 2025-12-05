@@ -425,24 +425,31 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
   Widget _buildRatingQuestionCard(String questionId, Map<String, dynamic> data) {
     final questionText = data['question_text'] as String? ?? 'Question';
     final answerData = data['answer_data'] as Map<String, dynamic>? ?? {};
+    
+    // Get max_rating from backend (now included in rating_data)
+    int maxRating = 5; // Default fallback
+    final backendMaxRating = data['max_rating'];
+    if (backendMaxRating != null) {
+      if (backendMaxRating is int) {
+        maxRating = backendMaxRating;
+      } else if (backendMaxRating is String) {
+        maxRating = int.tryParse(backendMaxRating) ?? 5;
+      }
+    }
+    // Ensure maxRating is valid (1-10 range)
+    if (maxRating < 1) maxRating = 5;
+    if (maxRating > 10) maxRating = 10;
 
-    // Calculate average rating, total, and determine max rating from data
+    // Calculate average rating and total
     int total = 0;
     double weightedSum = 0;
-    int maxRating = 5; // Default to 5
     answerData.forEach((key, value) {
       final rating = int.tryParse(key) ?? 0;
       final count = value as int? ?? 0;
       total += count;
       weightedSum += rating * count;
-      // Track the highest rating value found in responses
-      if (rating > maxRating) maxRating = rating;
     });
     final averageRating = total > 0 ? (weightedSum / total) : 0.0;
-    // Ensure maxRating is at least the rounded average
-    if (averageRating.round() > maxRating) maxRating = averageRating.round();
-    // Cap at 10 stars max for display
-    if (maxRating > 10) maxRating = 10;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),

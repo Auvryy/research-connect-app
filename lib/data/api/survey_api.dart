@@ -119,26 +119,33 @@ class SurveyAPI {
     }
   }
 
-  /// Get all surveys
-  /// GET /api/survey/post/get/
+  /// Get all surveys with pagination support
+  /// GET /api/survey/post/get?page=1&per_page=10
   /// Backend Response Format:
   /// {
   ///   "message": [...surveys...],
   ///   "ok": true,
   ///   "status": 200
   /// }
-  static Future<List<dynamic>> getAllSurveys() async {
+  static Future<List<dynamic>> getAllSurveys({int page = 1, int perPage = 10}) async {
     try {
       final dio = await DioClient.instance;
-      final response = await dio.get('/../survey/post/get');
+      final response = await dio.get(
+        '/../survey/post/get',
+        queryParameters: {
+          'page': page,
+          'per_page': perPage,
+        },
+      );
       
+      print('SurveyAPI getAllSurveys: page=$page, perPage=$perPage');
       print('SurveyAPI getAllSurveys: Response status: ${response.statusCode}');
-      print('SurveyAPI getAllSurveys: Response data: ${response.data}');
       
       if (response.statusCode == 200 && response.data['ok'] == true) {
         // Backend returns surveys in 'message' field, not 'data'
         final surveys = response.data['message'];
         if (surveys is List) {
+          print('SurveyAPI getAllSurveys: Got ${surveys.length} surveys');
           return surveys;
         }
         print('SurveyAPI getAllSurveys: message is not a List: ${surveys.runtimeType}');

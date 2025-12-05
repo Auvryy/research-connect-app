@@ -521,53 +521,50 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
   }
 
   Widget _buildSectionPage(SurveySection section) {
-    return SingleChildScrollView(
+    return ListView(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [AppColors.accent1.withOpacity(0.08), AppColors.accent1.withOpacity(0.02)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.accent1.withOpacity(0.2)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(color: AppColors.accent1.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                      child: const Icon(Icons.article_outlined, color: AppColors.accent1, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(section.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryText))),
-                  ],
-                ),
-                if (section.description.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(section.description, style: const TextStyle(fontSize: 14, color: AppColors.secondaryText, height: 1.5)),
-                ],
-                const SizedBox(height: 8),
-                Text('${section.questions.length} question${section.questions.length > 1 ? 's' : ''}', style: TextStyle(fontSize: 13, color: AppColors.accent1.withOpacity(0.8), fontWeight: FontWeight.w500)),
-              ],
-            ),
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [AppColors.accent1.withOpacity(0.08), AppColors.accent1.withOpacity(0.02)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.accent1.withOpacity(0.2)),
           ),
-          const SizedBox(height: 24),
-          ...section.questions.asMap().entries.map((entry) {
-            final index = entry.key;
-            final question = entry.value;
-            return Padding(
-              padding: EdgeInsets.only(bottom: index < section.questions.length - 1 ? 20 : 100),
-              child: _buildQuestionCard(section.sectionId, question),
-            );
-          }),
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: AppColors.accent1.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.article_outlined, color: AppColors.accent1, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(section.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryText))),
+                ],
+              ),
+              if (section.description.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(section.description, style: const TextStyle(fontSize: 14, color: AppColors.secondaryText, height: 1.5)),
+              ],
+              const SizedBox(height: 8),
+              Text('${section.questions.length} question${section.questions.length > 1 ? 's' : ''}', style: TextStyle(fontSize: 13, color: AppColors.accent1.withOpacity(0.8), fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        ...section.questions.asMap().entries.map((entry) {
+          final index = entry.key;
+          final question = entry.value;
+          return Padding(
+            padding: EdgeInsets.only(bottom: index < section.questions.length - 1 ? 20 : 100),
+            child: _buildQuestionCard(section.sectionId, question),
+          );
+        }),
+      ],
     );
   }
 
@@ -575,6 +572,7 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     final currentValue = _responses[sectionId]?[question.questionId];
 
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -583,7 +581,7 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
