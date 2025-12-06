@@ -235,13 +235,48 @@ class _ProfileSurveyState extends State<ProfileSurvey> {
                 // Status Badges Row
                 Row(
                   children: [
+                    // Approval Status Badge (Pending/Approved)
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: widget.survey.approved
+                            ? Colors.green.shade100
+                            : Colors.orange.shade100,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            widget.survey.approved ? Icons.verified : Icons.pending,
+                            size: 14,
+                            color: widget.survey.approved
+                                ? Colors.green.shade800
+                                : Colors.orange.shade800,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            widget.survey.approved ? "Approved" : "Pending",
+                            style: TextStyle(
+                              color: widget.survey.approved
+                                  ? Colors.green.shade800
+                                  : Colors.orange.shade800,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     // Open/Closed Status Badge
                     Container(
                       padding:
                           const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: _currentStatus
-                            ? Colors.green.shade100
+                            ? Colors.blue.shade100
                             : Colors.red.shade100,
                         borderRadius: BorderRadius.circular(20),
                       ),
@@ -249,7 +284,7 @@ class _ProfileSurveyState extends State<ProfileSurvey> {
                         _currentStatus ? "Open" : "Closed",
                         style: TextStyle(
                           color:
-                              _currentStatus ? Colors.green.shade800 : Colors.red[800],
+                              _currentStatus ? Colors.blue.shade800 : Colors.red[800],
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
