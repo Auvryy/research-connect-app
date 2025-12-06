@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/widgets/profile_survey.dart';
 import 'package:inquira/widgets/change_password_dialog.dart';
@@ -7,6 +8,7 @@ import 'package:inquira/data/user_info.dart';
 import 'package:inquira/models/survey.dart';
 import 'package:inquira/data/api/auth_api.dart';
 import 'package:inquira/data/api/otp_api.dart';
+import 'package:inquira/data/api/survey_api.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -16,9 +18,14 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  int _selectedTab = 0;
+  int _selectedTab = 0; // 0 = My Surveys, 1 = Additional Information
+  int _surveyStatusTab = 0; // 0 = All, 1 = Pending, 2 = Approved, 3 = Rejected
+  int _settingsTab = 0; // 0 = Privacy, 1 = Preferences
   List<Survey> _userSurveys = [];
+  List<Survey> _rejectedSurveys = [];
   bool _isLoading = true;
+  bool _isLoadingRejected = false;
+  int _totalResponses = 0; // From backend
 
   @override
   void initState() {
@@ -57,12 +64,19 @@ class _ProfilePageState extends State<ProfilePage> {
             .map((json) => _parseSurveyFromBackend(json as Map<String, dynamic>))
             .toList();
         
+        // Parse total_num_of_responses from backend
+        final totalResponses = (userInfo?['total_num_of_responses'] as int?) ?? 0;
+        
         if (mounted) {
           setState(() {
             _userSurveys = userSurveys;
+            _totalResponses = totalResponses;
             _isLoading = false;
           });
         }
+        
+        // Load rejected surveys after initial load
+        _loadRejectedSurveys();
       } else {
         // Fallback to local data
         final loadedUser = await UserInfo.loadUserInfo();
@@ -80,6 +94,68 @@ class _ProfilePageState extends State<ProfilePage> {
         });
       }
     }
+  }
+
+  /// Load rejected surveys from the backend
+  Future<void> _loadRejectedSurveys() async {
+    if (_isLoadingRejected) return;
+    
+    setState(() => _isLoadingRejected = true);
+    
+    try {
+      final response = await SurveyAPI.getRejectedSurveys();
+      
+      if (response['ok'] == true) {
+        final surveys = (response['surveys'] as List)
+            .map((json) => _parseRejectedSurveyFromBackend(json as Map<String, dynamic>))
+            .toList();
+        
+        if (mounted) {
+          setState(() {
+            _rejectedSurveys = surveys;
+            _isLoadingRejected = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isLoadingRejected = false);
+        }
+      }
+    } catch (e) {
+      print('Error loading rejected surveys: $e');
+      if (mounted) {
+        setState(() => _isLoadingRejected = false);
+      }
+    }
+  }
+  
+  Survey _parseRejectedSurveyFromBackend(Map<String, dynamic> json) {
+    final survey = _parseSurveyFromBackend(json);
+    // Store rejection message if available
+    final rejectionMsg = json['rejection_msg'] as String?;
+    // Backend has a typo: uses 'approved`' (with backtick) instead of 'approved'
+    final approved = (json['approved`'] as bool?) ?? (json['approved'] as bool?) ?? false;
+    // We'll use the caption field to store rejection message temporarily
+    return Survey(
+      id: survey.id,
+      postId: survey.postId,
+      title: survey.title,
+      caption: rejectionMsg ?? survey.caption,
+      description: survey.description,
+      timeToComplete: survey.timeToComplete,
+      tags: survey.tags,
+      targetAudience: survey.targetAudience,
+      creator: survey.creator,
+      creatorProfileUrl: survey.creatorProfileUrl,
+      createdAt: survey.createdAt,
+      status: survey.status,
+      approved: approved, // Parse approved status correctly
+      archived: survey.archived,
+      responses: survey.responses,
+      numOfLikes: survey.numOfLikes,
+      isLiked: survey.isLiked,
+      questions: survey.questions,
+    );
   }
 
   /// Legacy method for backward compatibility - just calls the combined method
@@ -123,7 +199,8 @@ class _ProfilePageState extends State<ProfilePage> {
     final isLiked = json['is_liked'] as bool? ?? false;
 
     // Parse approved and archived flags
-    final approved = json['approved'] as bool? ?? false;
+    // Backend has a typo: uses 'approved`' (with backtick) instead of 'approved'
+    final approved = (json['approved`'] as bool?) ?? (json['approved'] as bool?) ?? false;
     final archived = json['archived'] as bool? ?? false;
     
     // Parse creator profile URL
@@ -218,6 +295,115 @@ class _ProfilePageState extends State<ProfilePage> {
     final totalResponses = _calculateTotalResponses();
     final avgResponses = (totalResponses / openSurveys).round();
     return '$avgResponses avg';
+  }
+
+  /// Build the survey list based on the selected status tab
+  Widget _buildSurveyList() {
+    List<Survey> surveysToShow;
+    String emptyMessage;
+    String emptySubMessage;
+    IconData emptyIcon;
+    Color emptyIconColor;
+    
+    switch (_surveyStatusTab) {
+      case 1: // Pending
+        surveysToShow = _userSurveys.where((s) => !s.approved).toList();
+        emptyMessage = 'No pending surveys';
+        emptySubMessage = 'All your surveys have been reviewed!';
+        emptyIcon = Icons.pending_actions;
+        emptyIconColor = Colors.orange;
+        break;
+      case 2: // Approved
+        surveysToShow = _userSurveys.where((s) => s.approved).toList();
+        emptyMessage = 'No approved surveys yet';
+        emptySubMessage = 'Surveys will appear here once approved by admin.';
+        emptyIcon = Icons.verified;
+        emptyIconColor = Colors.green;
+        break;
+      case 3: // Rejected
+        if (_isLoadingRejected) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        surveysToShow = _rejectedSurveys;
+        emptyMessage = 'No rejected surveys';
+        emptySubMessage = 'Great! None of your surveys have been rejected.';
+        emptyIcon = Icons.check_circle;
+        emptyIconColor = Colors.green;
+        break;
+      default: // All - Include approved, pending, and rejected surveys
+        surveysToShow = [..._userSurveys, ..._rejectedSurveys];
+        emptyMessage = 'No surveys yet';
+        emptySubMessage = 'Create your first survey to get started!';
+        emptyIcon = Icons.quiz_outlined;
+        emptyIconColor = Colors.grey;
+    }
+    
+    if (surveysToShow.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            children: [
+              Icon(emptyIcon, size: 64, color: emptyIconColor.withOpacity(0.5)),
+              const SizedBox(height: 16),
+              Text(emptyMessage, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[600])),
+              const SizedBox(height: 8),
+              Text(emptySubMessage, style: TextStyle(fontSize: 14, color: Colors.grey[500]), textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // For rejected surveys, show special card with rejection message
+    if (_surveyStatusTab == 3) {
+      return Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.red.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.red.shade700, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'These surveys were rejected by admin. Check the rejection reason for each survey.',
+                    style: TextStyle(fontSize: 12, color: Colors.red.shade900),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...surveysToShow.map((survey) => Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: _RejectedSurveyCard(survey: survey),
+          )),
+        ],
+      );
+    }
+    
+    return Column(
+      children: surveysToShow.map((survey) => Padding(
+        padding: const EdgeInsets.only(bottom: 12.0),
+        child: ProfileSurvey(
+          survey: survey,
+          onSurveyUpdated: _loadUserSurveys,
+          onStatusChanged: _updateSurveyStatus,
+          onSurveyArchived: _removeSurveyFromList,
+        ),
+      )).toList(),
+    );
   }
 
   Color _getRoleColor(String? role) {
@@ -448,8 +634,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Row(
                   children: [
                     Expanded(child: _StatItem(label: "Surveys Posted", value: _userSurveys.length.toString())),
-                    Expanded(child: _StatItem(label: "Total Responses", value: _calculateTotalResponses().toString())),
-                    Expanded(child: _StatItem(label: "Response Rate", value: _calculateResponseRate())),
+                    Expanded(child: _StatItem(label: "Total Responses", value: _totalResponses.toString())),
                   ],
                 ),
               ),
@@ -458,67 +643,92 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   _TabButton(text: "My Surveys", isSelected: _selectedTab == 0, onTap: () => setState(() => _selectedTab = 0)),
                   const SizedBox(width: 10),
-                  _TabButton(text: "Settings", isSelected: _selectedTab == 1, onTap: () => setState(() => _selectedTab = 1)),
+                  _TabButton(text: "Additional Information", isSelected: _selectedTab == 1, onTap: () => setState(() => _selectedTab = 1)),
                 ],
               ),
               const SizedBox(height: 20),
               if (_selectedTab == 0)
                 _isLoading
                   ? const Center(child: Padding(padding: EdgeInsets.all(32.0), child: CircularProgressIndicator()))
-                  : _userSurveys.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32.0),
-                            child: Column(
+                  : Column(
+                      children: [
+                        // Survey Status Filter Tabs
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _SurveyStatusChip(
+                                label: 'All',
+                                count: _userSurveys.length + _rejectedSurveys.length,
+                                isSelected: _surveyStatusTab == 0,
+                                onTap: () => setState(() => _surveyStatusTab = 0),
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              _SurveyStatusChip(
+                                label: 'Pending',
+                                count: _userSurveys.where((s) => !s.approved).length,
+                                isSelected: _surveyStatusTab == 1,
+                                onTap: () => setState(() => _surveyStatusTab = 1),
+                                color: Colors.orange,
+                              ),
+                              const SizedBox(width: 8),
+                              _SurveyStatusChip(
+                                label: 'Approved',
+                                count: _userSurveys.where((s) => s.approved).length,
+                                isSelected: _surveyStatusTab == 2,
+                                onTap: () => setState(() => _surveyStatusTab = 2),
+                                color: Colors.green,
+                              ),
+                              const SizedBox(width: 8),
+                              _SurveyStatusChip(
+                                label: 'Rejected',
+                                count: _rejectedSurveys.length,
+                                isSelected: _surveyStatusTab == 3,
+                                onTap: () {
+                                  setState(() => _surveyStatusTab = 3);
+                                  if (_rejectedSurveys.isEmpty && !_isLoadingRejected) {
+                                    _loadRejectedSurveys();
+                                  }
+                                },
+                                color: Colors.red,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Info banner about approval process
+                        if (_surveyStatusTab != 3)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Row(
                               children: [
-                                Icon(Icons.quiz_outlined, size: 64, color: Colors.grey[400]),
-                                const SizedBox(height: 16),
-                                Text('No surveys yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[600])),
-                                const SizedBox(height: 8),
-                                Text('Create your first survey to get started!', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+                                Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'New surveys require admin approval before appearing in the public feed.',
+                                    style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                        )
-                      : Column(
-                          children: [
-                            // Info banner about approval process
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 16),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.blue.shade200),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'New surveys require admin approval before appearing in the public feed.',
-                                      style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            ..._userSurveys.map((survey) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12.0),
-                              child: ProfileSurvey(
-                                survey: survey,
-                                onSurveyUpdated: _loadUserSurveys,
-                                onStatusChanged: _updateSurveyStatus,
-                                onSurveyArchived: _removeSurveyFromList,
-                              ),
-                            )),
-                          ],
-                        )
+                        // Survey List based on selected tab
+                        _buildSurveyList(),
+                      ],
+                    )
               else
+                // Additional Information Tab
                 Column(
                   children: [
-                    Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Additional Information', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700]))),
+                    Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Manage Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700]))),
                     Container(
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(bottom: 16),
@@ -536,50 +746,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     _SettingsItem(icon: Icons.book, label: currentUser?.program ?? "N/A", onTap: () => _showEditDialog('Program', 'program', currentUser?.program, Icons.book, Colors.cyan), iconColor: Colors.cyan),
                     const SizedBox(height: 12),
                     _SettingsItem(icon: Icons.email, label: currentUser?.email ?? "N/A", onTap: _showEmailSetupDialog, iconColor: Colors.orange),
-                    const SizedBox(height: 20),
-                    Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Account Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700]))),
-                    _SettingsItem(
-                      icon: Icons.archive,
-                      label: "Archived Surveys",
-                      onTap: () => Navigator.pushNamed(context, '/archived-surveys'),
-                      iconColor: Colors.orange,
-                    ),
-                    const SizedBox(height: 12),
-                    _SettingsItem(icon: Icons.lock, label: "Change Password", onTap: _showChangePasswordDialog),
-                    const SizedBox(height: 12),
-                    _SettingsItem(
-                      icon: Icons.logout,
-                      label: "Logout",
-                      onTap: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Logout'),
-                            content: const Text('Are you sure you want to logout?'),
-                            actions: [
-                              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-                                child: const Text('Logout', style: TextStyle(color: Colors.white)),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirm == true && mounted) {
-                          try {
-                            await AuthAPI.logout();
-                            await UserInfo.clearUserInfo();
-                            currentUser = null;
-                            if (mounted) Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                          } catch (e) {
-                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error logging out: \$e'), backgroundColor: AppColors.error));
-                          }
-                        }
-                      },
-                      iconColor: AppColors.error,
-                      textColor: AppColors.error,
-                    ),
                   ],
                 ),
             ],
@@ -922,6 +1088,187 @@ class _EditFieldDialogState extends State<_EditFieldDialog> {
           child: const Text('Save', style: TextStyle(color: Colors.white)),
         ),
       ],
+    );
+  }
+}
+
+/// Survey Status Filter Chip Widget
+class _SurveyStatusChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final Color color;
+
+  const _SurveyStatusChip({
+    required this.label,
+    required this.count,
+    required this.isSelected,
+    required this.onTap,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? color : Colors.grey.shade300,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey.shade700,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white.withOpacity(0.25) : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.grey.shade600,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Rejected Survey Card Widget
+class _RejectedSurveyCard extends StatelessWidget {
+  final Survey survey;
+
+  const _RejectedSurveyCard({required this.survey});
+
+  @override
+  Widget build(BuildContext context) {
+    final formattedDate = DateFormat('yMMMd').format(survey.createdAt);
+    // Caption stores the rejection message for rejected surveys
+    final rejectionMessage = survey.caption.isNotEmpty ? survey.caption : 'No reason provided';
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      margin: const EdgeInsets.symmetric(vertical: 3),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title Row with Rejected Badge
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    survey.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.cancel, size: 14, color: Colors.red.shade800),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Rejected',
+                        style: TextStyle(
+                          color: Colors.red.shade800,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Date
+            Row(
+              children: [
+                Icon(Icons.calendar_month, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(
+                  formattedDate,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Rejection Reason Box
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.message, size: 16, color: Colors.red.shade700),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Rejection Reason',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    rejectionMessage,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.red.shade900,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -922,4 +922,49 @@ class SurveyAPI {
       };
     }
   }
+
+  /// Get user's liked surveys
+  /// GET /api/user/post/liked
+  static Future<Map<String, dynamic>> getLikedSurveys() async {
+    try {
+      final dio = await DioClient.instance;
+      
+      print('SurveyAPI: Fetching liked surveys...');
+      
+      final response = await dio.get('/post/liked');
+      
+      print('SurveyAPI getLikedSurveys: Response status: ${response.statusCode}');
+      print('SurveyAPI getLikedSurveys: Response data: ${response.data}');
+      
+      if (response.statusCode == 200 && response.data['ok'] == true) {
+        return {
+          'ok': true,
+          'surveys': response.data['message'] ?? [],
+        };
+      }
+      
+      return {
+        'ok': false,
+        'message': response.data['message'] ?? 'Failed to fetch liked surveys',
+      };
+    } on DioException catch (e) {
+      print('SurveyAPI getLikedSurveys: DioException: ${e.message}');
+      
+      String errorMessage = 'Failed to fetch liked surveys';
+      if (e.response?.data is Map) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      
+      return {
+        'ok': false,
+        'message': errorMessage,
+      };
+    } catch (e) {
+      print('SurveyAPI getLikedSurveys: Error: $e');
+      return {
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
 }

@@ -266,7 +266,8 @@ class _HomeFeedState extends State<HomeFeed> {
     final isLiked = json['is_liked'] as bool? ?? false;
 
     // Parse approved and archived flags
-    final approved = json['approved'] as bool? ?? false;
+    // Backend has a typo: uses 'approved`' (with backtick) instead of 'approved'
+    final approved = (json['approved`'] as bool?) ?? (json['approved'] as bool?) ?? false;
     final archived = json['archived'] as bool? ?? false;
     
     // Parse creator profile URL

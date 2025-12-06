@@ -91,7 +91,8 @@ class _ArchivedSurveysPageState extends State<ArchivedSurveysPage> {
     final isLiked = json['is_liked'] as bool? ?? false;
 
     // Parse approved and archived flags (archived surveys are always archived=true)
-    final approved = json['approved'] as bool? ?? false;
+    // Backend has a typo: uses 'approved`' (with backtick) instead of 'approved'
+    final approved = (json['approved`'] as bool?) ?? (json['approved'] as bool?) ?? false;
     final archived = json['archived'] as bool? ?? true; // Default true for this page
     
     // Parse creator profile URL
