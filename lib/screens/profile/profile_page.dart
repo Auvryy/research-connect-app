@@ -18,12 +18,14 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  int _selectedTab = 0;
+  int _selectedTab = 0; // 0 = My Surveys, 1 = Additional Information
   int _surveyStatusTab = 0; // 0 = All, 1 = Pending, 2 = Approved, 3 = Rejected
+  int _settingsTab = 0; // 0 = Privacy, 1 = Preferences
   List<Survey> _userSurveys = [];
   List<Survey> _rejectedSurveys = [];
   bool _isLoading = true;
   bool _isLoadingRejected = false;
+  int _totalResponses = 0; // From backend
 
   @override
   void initState() {
@@ -62,12 +64,19 @@ class _ProfilePageState extends State<ProfilePage> {
             .map((json) => _parseSurveyFromBackend(json as Map<String, dynamic>))
             .toList();
         
+        // Parse total_num_of_responses from backend
+        final totalResponses = (userInfo?['total_num_of_responses'] as int?) ?? 0;
+        
         if (mounted) {
           setState(() {
             _userSurveys = userSurveys;
+            _totalResponses = totalResponses;
             _isLoading = false;
           });
         }
+        
+        // Load rejected surveys after initial load
+        _loadRejectedSurveys();
       } else {
         // Fallback to local data
         final loadedUser = await UserInfo.loadUserInfo();
@@ -326,8 +335,8 @@ class _ProfilePageState extends State<ProfilePage> {
         emptyIcon = Icons.check_circle;
         emptyIconColor = Colors.green;
         break;
-      default: // All
-        surveysToShow = _userSurveys;
+      default: // All - Include approved, pending, and rejected surveys
+        surveysToShow = [..._userSurveys, ..._rejectedSurveys];
         emptyMessage = 'No surveys yet';
         emptySubMessage = 'Create your first survey to get started!';
         emptyIcon = Icons.quiz_outlined;
@@ -625,8 +634,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Row(
                   children: [
                     Expanded(child: _StatItem(label: "Surveys Posted", value: _userSurveys.length.toString())),
-                    Expanded(child: _StatItem(label: "Total Responses", value: _calculateTotalResponses().toString())),
-                    Expanded(child: _StatItem(label: "Response Rate", value: _calculateResponseRate())),
+                    Expanded(child: _StatItem(label: "Total Responses", value: _totalResponses.toString())),
                   ],
                 ),
               ),
@@ -635,7 +643,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   _TabButton(text: "My Surveys", isSelected: _selectedTab == 0, onTap: () => setState(() => _selectedTab = 0)),
                   const SizedBox(width: 10),
-                  _TabButton(text: "Settings", isSelected: _selectedTab == 1, onTap: () => setState(() => _selectedTab = 1)),
+                  _TabButton(text: "Additional Information", isSelected: _selectedTab == 1, onTap: () => setState(() => _selectedTab = 1)),
                 ],
               ),
               const SizedBox(height: 20),
@@ -651,7 +659,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             children: [
                               _SurveyStatusChip(
                                 label: 'All',
-                                count: _userSurveys.length,
+                                count: _userSurveys.length + _rejectedSurveys.length,
                                 isSelected: _surveyStatusTab == 0,
                                 onTap: () => setState(() => _surveyStatusTab = 0),
                                 color: AppColors.primary,
@@ -717,9 +725,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                     )
               else
+                // Additional Information Tab
                 Column(
                   children: [
-                    Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Additional Information', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700]))),
+                    Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Manage Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700]))),
                     Container(
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(bottom: 16),
@@ -737,50 +746,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     _SettingsItem(icon: Icons.book, label: currentUser?.program ?? "N/A", onTap: () => _showEditDialog('Program', 'program', currentUser?.program, Icons.book, Colors.cyan), iconColor: Colors.cyan),
                     const SizedBox(height: 12),
                     _SettingsItem(icon: Icons.email, label: currentUser?.email ?? "N/A", onTap: _showEmailSetupDialog, iconColor: Colors.orange),
-                    const SizedBox(height: 20),
-                    Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Account Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700]))),
-                    _SettingsItem(
-                      icon: Icons.archive,
-                      label: "Archived Surveys",
-                      onTap: () => Navigator.pushNamed(context, '/archived-surveys'),
-                      iconColor: Colors.orange,
-                    ),
-                    const SizedBox(height: 12),
-                    _SettingsItem(icon: Icons.lock, label: "Change Password", onTap: _showChangePasswordDialog),
-                    const SizedBox(height: 12),
-                    _SettingsItem(
-                      icon: Icons.logout,
-                      label: "Logout",
-                      onTap: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Logout'),
-                            content: const Text('Are you sure you want to logout?'),
-                            actions: [
-                              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-                                child: const Text('Logout', style: TextStyle(color: Colors.white)),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirm == true && mounted) {
-                          try {
-                            await AuthAPI.logout();
-                            await UserInfo.clearUserInfo();
-                            currentUser = null;
-                            if (mounted) Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                          } catch (e) {
-                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error logging out: \$e'), backgroundColor: AppColors.error));
-                          }
-                        }
-                      },
-                      iconColor: AppColors.error,
-                      textColor: AppColors.error,
-                    ),
                   ],
                 ),
             ],

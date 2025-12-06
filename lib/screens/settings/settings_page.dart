@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/user_info.dart';
 import 'package:inquira/data/api/auth_api.dart';
+import 'package:inquira/widgets/change_password_dialog.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -156,27 +157,142 @@ class _SettingsPageState extends State<SettingsPage> {
                     // TODO: Apply theme when theme system is implemented
                   },
                 ),
-                const Divider(height: 1),
+                const Divider(height: 1, thickness: 8, color: AppColors.background),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(
+                    'Privacy',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ),
                 ListTile(
-                  leading: Icon(Icons.account_circle, color: AppColors.primary),
-                  title: const Text("Account"),
-                  subtitle: const Text("Manage your account"),
+                  leading: Icon(Icons.lock, color: AppColors.primary),
+                  title: const Text("Change Password"),
                   trailing: Icon(Icons.chevron_right, color: AppColors.secondary),
-                  onTap: () {
-                    // TODO: navigate to account page
+                  onTap: () async {
+                    final userEmail = currentUser?.email;
+                    if (userEmail == null || userEmail.isEmpty) {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Email Required'),
+                          content: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning_amber, color: Colors.orange[700], size: 24),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Text('You need to set up your email first before you can change your password. Go to Profile > Additional Information to set your email.', style: TextStyle(fontSize: 14)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+                          ],
+                        ),
+                      );
+                      return;
+                    }
+                    
+                    // Show confirmation dialog before sending OTP
+                    final shouldProceed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Change Password'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.email_outlined, color: AppColors.primary, size: 24),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'An OTP will be sent to:\n$userEmail',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Do you want to proceed?',
+                              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                            child: const Text('Send OTP', style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    );
+                    
+                    if (shouldProceed == true && mounted) {
+                      showDialog(context: context, builder: (context) => ChangePasswordDialog(userEmail: userEmail));
+                    }
                   },
                 ),
                 const Divider(height: 1),
+                const Divider(height: 1, thickness: 8, color: AppColors.background),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(
+                    'Preferences',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ),
                 ListTile(
-                  leading: Icon(Icons.privacy_tip, color: AppColors.primary),
-                  title: const Text("Privacy"),
-                  subtitle: const Text("Manage privacy settings"),
+                  leading: Icon(Icons.archive, color: Colors.orange),
+                  title: const Text("Archived Surveys"),
                   trailing: Icon(Icons.chevron_right, color: AppColors.secondary),
                   onTap: () {
-                    // TODO: navigate to privacy page
+                    Navigator.pushNamed(context, '/archived-surveys');
                   },
                 ),
                 const Divider(height: 1),
+                const Divider(height: 1, thickness: 8, color: AppColors.background),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(
+                    'Account',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ),
                 ListTile(
                   leading: const Icon(Icons.logout, color: AppColors.pink),
                   title: const Text(
