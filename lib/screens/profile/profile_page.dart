@@ -11,14 +11,16 @@ import 'package:inquira/data/api/otp_api.dart';
 import 'package:inquira/data/api/survey_api.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  /// forcedTab: 0 = My Surveys, 1 = Others; when set, tabs are hidden and the content is locked to that tab.
+  final int? forcedTab;
+  const ProfilePage({super.key, this.forcedTab});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  int _selectedTab = 0; // 0 = My Surveys, 1 = Additional Information
+  late int _selectedTab; // 0 = My Surveys, 1 = Additional Information
   int _surveyStatusTab = 0; // 0 = All, 1 = Pending, 2 = Approved, 3 = Rejected, 4 = Liked
   List<Survey> _userSurveys = [];
   List<Survey> _rejectedSurveys = [];
@@ -31,6 +33,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    _selectedTab = widget.forcedTab ?? 0;
     _loadUserDataAndSurveys();
   }
 
@@ -579,14 +582,16 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               const SizedBox(height: 20),
-              Row(
-                children: [
-                  _TabButton(text: "My Surveys", isSelected: _selectedTab == 0, onTap: () => setState(() => _selectedTab = 0)),
-                  const SizedBox(width: 10),
-                  _TabButton(text: "Others", isSelected: _selectedTab == 1, onTap: () => setState(() => _selectedTab = 1)),
-                ],
-              ),
-              const SizedBox(height: 20),
+              if (widget.forcedTab == null) ...[
+                Row(
+                  children: [
+                    _TabButton(text: "My Surveys", isSelected: _selectedTab == 0, onTap: () => setState(() => _selectedTab = 0)),
+                    const SizedBox(width: 10),
+                    _TabButton(text: "Others", isSelected: _selectedTab == 1, onTap: () => setState(() => _selectedTab = 1)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
               if (_selectedTab == 0)
                 _isLoading
                   ? const Center(child: Padding(padding: EdgeInsets.all(32.0), child: CircularProgressIndicator()))
@@ -678,10 +683,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                     )
               else
-                // Others Tab
+                // Others Tab content only
                 Column(
                   children: [
-                    Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Others', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700]))),
                     Container(
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(bottom: 16),

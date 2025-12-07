@@ -27,12 +27,6 @@ class _HomePageState extends State<HomePage> {
     _currentIndex = widget.initialTab;
   }
 
-  // ✅ Only include pages that live under the bottom nav
-  final List<Widget> _pages = [
-    const HomeFeed(),
-    const ProfilePage(),
-  ];
-
   void _onTabTapped(int index) {
     if (index == 2) {
       // AddSurvey → new page without bottom nav
@@ -40,17 +34,19 @@ class _HomePageState extends State<HomePage> {
         context,
         MaterialPageRoute(builder: (context) => const CreateSurveyPage()),
       );
-    } else if (index == 3) {
+      return;
+    }
+    if (index == 4) {
       // Settings → new page without bottom nav
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const SettingsPage()),
       );
-    } else {
-      setState(() {
-        _currentIndex = index;
-      });
+      return;
     }
+    setState(() {
+      _currentIndex = index;
+    });
   }
 
   /// ✅ Builds different AppBars depending on tab
@@ -110,8 +106,34 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       );
+    } else if (_currentIndex == 3) {
+      return AppBar(
+        backgroundColor: AppColors.secondaryBG,
+        centerTitle: true,
+        title: const Text(
+          "My Surveys",
+          style: TextStyle(
+            fontFamily: 'Giaza',
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
     }
     return null;
+  }
+
+  Widget _buildBody() {
+    switch (_currentIndex) {
+      case 0:
+        return const HomeFeed();
+      case 1:
+        return const ProfilePage(key: ValueKey('profile-others'), forcedTab: 1); // Others only
+      case 3:
+        return const ProfilePage(key: ValueKey('profile-my-surveys'), forcedTab: 0); // My Surveys only
+      default:
+        return const HomeFeed();
+    }
   }
 
   @override
@@ -119,7 +141,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: _buildAppBar(),
-      body: _pages[_currentIndex],
+      body: _buildBody(),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: AppColors.secondaryBG,
         currentIndex: _currentIndex,
@@ -150,9 +172,13 @@ class _HomePageState extends State<HomePage> {
             icon: SvgPicture.asset(
               'assets/icons/plus-icon.svg',
               height: 30,
-              color: AppColors.secondary, // stays grey
+              color: AppColors.primary,
             ),
             label: "Add",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list_alt, size: 28, color: _currentIndex == 3 ? AppColors.primary : AppColors.secondary),
+            label: "My Surveys",
           ),
           BottomNavigationBarItem(
             icon: SvgPicture.asset(
