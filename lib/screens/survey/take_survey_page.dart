@@ -470,7 +470,7 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: totalSections,
                 onPageChanged: (index) => setState(() => _currentSectionIndex = index),
-                itemBuilder: (context, index) => _buildSectionPage(_questionnaire!.sections[index]),
+                itemBuilder: (context, index) => _buildSectionPage(_questionnaire!.sections[index], isFirst: index == 0),
               ),
             ),
             _buildBottomNavigation(isLastSection, canProceed),
@@ -520,10 +520,39 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     );
   }
 
-  Widget _buildSectionPage(SurveySection section) {
+  Widget _buildSectionPage(SurveySection section, {bool isFirst = false}) {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        if (isFirst) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2))],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _questionnaire?.title ?? '',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryText),
+                ),
+                if ((_questionnaire?.description ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _questionnaire!.description,
+                    style: const TextStyle(fontSize: 14, color: AppColors.secondaryText, height: 1.5),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),

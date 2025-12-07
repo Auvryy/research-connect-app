@@ -155,29 +155,36 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
     final ratingsData = _responseData!['rating_data'] as Map<String, dynamic>?;
     final datesData = _responseData!['dates_data'] as Map<String, dynamic>?;
     final textData = _responseData!['text_data'] as Map<String, dynamic>?;
+    final numberDataExplicit = _responseData!['number_data'] as Map<String, dynamic>?;
 
-    // Separate number responses from text responses
-    Map<String, dynamic>? numberData;
+    // Separate number responses from text responses, prioritizing explicit number_data from backend
+    Map<String, dynamic>? numberData = numberDataExplicit != null && numberDataExplicit.isNotEmpty
+        ? numberDataExplicit
+        : null;
     Map<String, dynamic>? filteredTextData;
-    
+
     if (textData != null && textData.isNotEmpty) {
-      numberData = {};
+      // If backend didn't send number_data explicitly, derive it from text_data entries marked as number
+      if (numberData == null) numberData = {};
       filteredTextData = {};
-      
+
       for (final entry in textData.entries) {
         final data = entry.value as Map<String, dynamic>?;
         final questionType = data?['type'] as String? ?? '';
-        
+
         if (questionType == 'number') {
           numberData[entry.key] = entry.value;
         } else {
           filteredTextData[entry.key] = entry.value;
         }
       }
-      
-      // Set to null if empty to match the original null check behavior
-      if (numberData.isEmpty) numberData = null;
-      if (filteredTextData.isEmpty) filteredTextData = null;
+
+      if (numberData != null && numberData.isEmpty) numberData = null;
+      if (filteredTextData.isNotEmpty) {
+        // Keep non-number text responses
+      } else {
+        filteredTextData = null;
+      }
     }
 
     return RefreshIndicator(
@@ -702,16 +709,45 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
 
   Widget _buildNumberQuestionCard(String questionId, Map<String, dynamic> data) {
     final questionText = data['question_text'] as String? ?? 'Question';
-    final answerData = data['answer_data'] as List<dynamic>? ?? [];
+    final rawAnswerData = data['answer_data'];
 
-    // Calculate statistics for number responses
+    // Support both list of raw answers and map of value->count
     final List<double> numericValues = [];
-    for (final answer in answerData) {
-      final parsed = double.tryParse(answer?.toString() ?? '');
-      if (parsed != null) {
-        numericValues.add(parsed);
+    final Map<String, int> frequency = {};
+
+    if (rawAnswerData is List) {
+      for (final answer in rawAnswerData) {
+        final parsed = double.tryParse(answer?.toString() ?? '');
+        if (parsed != null) {
+          numericValues.add(parsed);
+          final key = parsed % 1 == 0 ? parsed.toInt().toString() : parsed.toStringAsFixed(2);
+          frequency[key] = (frequency[key] ?? 0) + 1;
+        }
       }
+    } else if (rawAnswerData is Map) {
+      rawAnswerData.forEach((key, value) {
+        final parsedKey = double.tryParse(key.toString());
+        final count = (value as num?)?.toInt() ?? 0;
+        if (parsedKey != null && count > 0) {
+          for (var i = 0; i < count; i++) {
+            numericValues.add(parsedKey);
+          }
+          final freqKey = parsedKey % 1 == 0 ? parsedKey.toInt().toString() : parsedKey.toStringAsFixed(2);
+          frequency[freqKey] = (frequency[freqKey] ?? 0) + count;
+        }
+      });
     }
+
+    // Sort frequency keys numerically when possible
+    final sortedFrequencyKeys = frequency.keys.toList()
+      ..sort((a, b) {
+        final aNum = double.tryParse(a);
+        final bNum = double.tryParse(b);
+        if (aNum != null && bNum != null) {
+          return aNum.compareTo(bNum);
+        }
+        return a.compareTo(b);
+      });
 
     double? average;
     double? min;
@@ -753,7 +789,7 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    '${answerData.length} responses',
+                    '${numericValues.length} responses',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.blue[700],
@@ -763,7 +799,7 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
               ],
             ),
             const SizedBox(height: 12),
-            if (answerData.isEmpty)
+              if (numericValues.isEmpty)
               Text(
                 'No responses yet',
                 style: TextStyle(color: Colors.grey[500], fontStyle: FontStyle.italic),
@@ -787,9 +823,39 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
                     ],
                   ),
                 ),
+              if (sortedFrequencyKeys.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text('Number tally', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                const SizedBox(height: 8),
+                ...sortedFrequencyKeys.map((key) {
+                  final count = frequency[key] ?? 0;
+                  final double percentage = numericValues.isNotEmpty ? (count / numericValues.length) : 0.0;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        SizedBox(width: 50, child: Text(key, style: const TextStyle(fontWeight: FontWeight.w600))),
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: percentage,
+                              backgroundColor: Colors.grey[200],
+                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                              minHeight: 8,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text('$count', style: TextStyle(color: Colors.grey[700])),
+                      ],
+                    ),
+                  );
+                }),
+              ],
               const SizedBox(height: 12),
               // Individual responses
-              ...answerData.take(10).map((response) {
+              ...numericValues.take(10).map((response) {
                 return Container(
                   width: double.infinity,
                   margin: const EdgeInsets.only(bottom: 8),
@@ -804,18 +870,18 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
                       Icon(Icons.tag, size: 16, color: Colors.grey[500]),
                       const SizedBox(width: 8),
                       Text(
-                        response?.toString() ?? '',
+                        response.toString(),
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
                 );
               }),
-              if (answerData.length > 10)
+              if (numericValues.length > 10)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    '... and ${answerData.length - 10} more responses',
+                    '... and ${numericValues.length - 10} more responses',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[500],
