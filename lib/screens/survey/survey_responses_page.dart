@@ -713,6 +713,24 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
       }
     }
 
+    // Frequency map for tally
+    final Map<String, int> frequency = {};
+    for (final value in numericValues) {
+      final key = value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(2);
+      frequency[key] = (frequency[key] ?? 0) + 1;
+    }
+
+    // Sort frequency keys numerically when possible
+    final sortedFrequencyKeys = frequency.keys.toList()
+      ..sort((a, b) {
+        final aNum = double.tryParse(a);
+        final bNum = double.tryParse(b);
+        if (aNum != null && bNum != null) {
+          return aNum.compareTo(bNum);
+        }
+        return a.compareTo(b);
+      });
+
     double? average;
     double? min;
     double? max;
@@ -787,6 +805,36 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
                     ],
                   ),
                 ),
+              if (sortedFrequencyKeys.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text('Number tally', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                const SizedBox(height: 8),
+                ...sortedFrequencyKeys.map((key) {
+                  final count = frequency[key] ?? 0;
+                  final double percentage = answerData.isNotEmpty ? (count / answerData.length) : 0.0;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        SizedBox(width: 50, child: Text(key, style: const TextStyle(fontWeight: FontWeight.w600))),
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: percentage,
+                              backgroundColor: Colors.grey[200],
+                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                              minHeight: 8,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text('$count', style: TextStyle(color: Colors.grey[700])),
+                      ],
+                    ),
+                  );
+                }),
+              ],
               const SizedBox(height: 12),
               // Individual responses
               ...answerData.take(10).map((response) {

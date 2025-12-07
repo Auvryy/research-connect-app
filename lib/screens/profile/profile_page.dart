@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/widgets/profile_survey.dart';
-import 'package:inquira/widgets/change_password_dialog.dart';
+import 'package:inquira/screens/profile/liked_surveys_page.dart';
 import 'package:inquira/data/user_info.dart';
 import 'package:inquira/models/survey.dart';
 import 'package:inquira/data/api/auth_api.dart';
@@ -19,12 +19,13 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   int _selectedTab = 0; // 0 = My Surveys, 1 = Additional Information
-  int _surveyStatusTab = 0; // 0 = All, 1 = Pending, 2 = Approved, 3 = Rejected
-  int _settingsTab = 0; // 0 = Privacy, 1 = Preferences
+  int _surveyStatusTab = 0; // 0 = All, 1 = Pending, 2 = Approved, 3 = Rejected, 4 = Liked
   List<Survey> _userSurveys = [];
   List<Survey> _rejectedSurveys = [];
+  List<Survey> _likedSurveys = [];
   bool _isLoading = true;
   bool _isLoadingRejected = false;
+  bool _isLoadingLiked = false;
   int _totalResponses = 0; // From backend
 
   @override
@@ -125,6 +126,39 @@ class _ProfilePageState extends State<ProfilePage> {
       print('Error loading rejected surveys: $e');
       if (mounted) {
         setState(() => _isLoadingRejected = false);
+      }
+    }
+  }
+  
+  /// Load liked surveys from the backend
+  Future<void> _loadLikedSurveys() async {
+    if (_isLoadingLiked) return;
+    
+    setState(() => _isLoadingLiked = true);
+    
+    try {
+      final response = await SurveyAPI.getLikedSurveys();
+      
+      if (response['ok'] == true) {
+        final surveys = (response['surveys'] as List)
+            .map((json) => _parseSurveyFromBackend(json as Map<String, dynamic>))
+            .toList();
+        
+        if (mounted) {
+          setState(() {
+            _likedSurveys = surveys;
+            _isLoadingLiked = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isLoadingLiked = false);
+        }
+      }
+    } catch (e) {
+      print('Error loading liked surveys: $e');
+      if (mounted) {
+        setState(() => _isLoadingLiked = false);
       }
     }
   }
@@ -280,23 +314,6 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  /// Calculate total responses across all user surveys
-  int _calculateTotalResponses() {
-    if (_userSurveys.isEmpty) return 0;
-    return _userSurveys.fold(0, (sum, survey) => sum + survey.responses);
-  }
-
-  /// Calculate average response rate across open surveys
-  /// Response rate = Total responses / Number of open surveys
-  String _calculateResponseRate() {
-    if (_userSurveys.isEmpty) return '0%';
-    final openSurveys = _userSurveys.where((s) => s.status).length;
-    if (openSurveys == 0) return 'N/A';
-    final totalResponses = _calculateTotalResponses();
-    final avgResponses = (totalResponses / openSurveys).round();
-    return '$avgResponses avg';
-  }
-
   /// Build the survey list based on the selected status tab
   Widget _buildSurveyList() {
     List<Survey> surveysToShow;
@@ -334,6 +351,21 @@ class _ProfilePageState extends State<ProfilePage> {
         emptySubMessage = 'Great! None of your surveys have been rejected.';
         emptyIcon = Icons.check_circle;
         emptyIconColor = Colors.green;
+        break;
+      case 4: // Liked
+        if (_isLoadingLiked) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        surveysToShow = _likedSurveys;
+        emptyMessage = 'No liked surveys';
+        emptySubMessage = 'Tap the heart on surveys to save them here.';
+        emptyIcon = Icons.favorite_border;
+        emptyIconColor = Colors.purple;
         break;
       default: // All - Include approved, pending, and rejected surveys
         surveysToShow = [..._userSurveys, ..._rejectedSurveys];
@@ -482,98 +514,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _showChangePasswordDialog() async {
-    final userEmail = currentUser?.email;
-    if (userEmail == null || userEmail.isEmpty) {
-      final shouldSetEmail = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Email Required'),
-          content: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.warning_amber, color: Colors.orange[700], size: 24),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text('You need to set up your email first before you can change your password.', style: TextStyle(fontSize: 14)),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-              child: const Text('Set Email', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      );
-      if (shouldSetEmail == true && mounted) await _showEmailSetupDialog();
-      return;
-    }
-    
-    // Show confirmation dialog before sending OTP
-    final shouldProceed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Change Password'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.email_outlined, color: AppColors.primary, size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'An OTP will be sent to:\n$userEmail',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Do you want to proceed?',
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            child: const Text('Send OTP', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    
-    if (shouldProceed == true && mounted) {
-      await showDialog(context: context, builder: (context) => ChangePasswordDialog(userEmail: userEmail));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -643,7 +583,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   _TabButton(text: "My Surveys", isSelected: _selectedTab == 0, onTap: () => setState(() => _selectedTab = 0)),
                   const SizedBox(width: 10),
-                  _TabButton(text: "Additional Information", isSelected: _selectedTab == 1, onTap: () => setState(() => _selectedTab = 1)),
+                  _TabButton(text: "Others", isSelected: _selectedTab == 1, onTap: () => setState(() => _selectedTab = 1)),
                 ],
               ),
               const SizedBox(height: 20),
@@ -693,6 +633,19 @@ class _ProfilePageState extends State<ProfilePage> {
                                 },
                                 color: Colors.red,
                               ),
+                              const SizedBox(width: 8),
+                              _SurveyStatusChip(
+                                label: 'Liked',
+                                count: _likedSurveys.length,
+                                isSelected: _surveyStatusTab == 4,
+                                onTap: () {
+                                  setState(() => _surveyStatusTab = 4);
+                                  if (_likedSurveys.isEmpty && !_isLoadingLiked) {
+                                    _loadLikedSurveys();
+                                  }
+                                },
+                                color: Colors.purple,
+                              ),
                             ],
                           ),
                         ),
@@ -725,10 +678,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                     )
               else
-                // Additional Information Tab
+                // Others Tab
                 Column(
                   children: [
-                    Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Manage Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700]))),
+                    Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Others', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700]))),
                     Container(
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(bottom: 16),
@@ -741,6 +694,24 @@ class _ProfilePageState extends State<ProfilePage> {
                         ],
                       ),
                     ),
+                    _SettingsItem(
+                      icon: Icons.favorite,
+                      label: "Liked Posts",
+                      onTap: () async {
+                        if (_likedSurveys.isEmpty && !_isLoadingLiked) {
+                          await _loadLikedSurveys();
+                        }
+                        if (!mounted) return;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => LikedSurveysPage(initialSurveys: _likedSurveys),
+                          ),
+                        );
+                      },
+                      iconColor: Colors.pink,
+                    ),
+                    const SizedBox(height: 12),
                     _SettingsItem(icon: Icons.school, label: currentUser?.school ?? "N/A", onTap: () => _showEditDialog('School', 'school', currentUser?.school, Icons.school, Colors.red), iconColor: Colors.red),
                     const SizedBox(height: 12),
                     _SettingsItem(icon: Icons.book, label: currentUser?.program ?? "N/A", onTap: () => _showEditDialog('Program', 'program', currentUser?.program, Icons.book, Colors.cyan), iconColor: Colors.cyan),
@@ -984,8 +955,7 @@ class _SettingsItem extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final Color? iconColor;
-  final Color? textColor;
-  const _SettingsItem({required this.icon, required this.label, required this.onTap, this.iconColor, this.textColor});
+  const _SettingsItem({required this.icon, required this.label, required this.onTap, this.iconColor});
 
   @override
   Widget build(BuildContext context) {
@@ -1002,7 +972,7 @@ class _SettingsItem extends StatelessWidget {
             child: Icon(icon, color: iconColor ?? AppColors.primary, size: 24),
           ),
           const SizedBox(width: 16),
-          Expanded(child: Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: textColor ?? Colors.black87))),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black87))),
           Icon(Icons.arrow_forward_ios, size: 18, color: Colors.grey[400]),
         ]),
       ),
