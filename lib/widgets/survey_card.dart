@@ -397,105 +397,119 @@ class _SurveyCardState extends State<SurveyCard> {
               const SizedBox(height: 16),
               
               // LIKE AND RESPONSES ROW
+              // Response Count
               Row(
                 children: [
-                  // Like Button
-                  InkWell(
-                    onTap: _isLiking ? null : _toggleLike,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _isLiking
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : Icon(
-                                  _isLiked ? Icons.favorite : Icons.favorite_border,
-                                  size: 20,
-                                  color: _isLiked ? Colors.red : AppColors.shadedPrimary,
-                                ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$_likeCount',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: _isLiked ? Colors.red : AppColors.shadedPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  const Icon(
+                    Icons.people_outline,
+                    size: 20,
+                    color: AppColors.shadedPrimary,
                   ),
-                  const SizedBox(width: 16),
-                  // Response Count
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.people_outline,
-                        size: 20,
-                        color: AppColors.shadedPrimary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${survey.responses} responses',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.shadedPrimary,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 4),
+                  Text(
+                    '${survey.responses} responses',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.shadedPrimary,
+                    ),
                   ),
                 ],
               ),
 
               const SizedBox(height: 12),
               
-              // TAKE SURVEY BUTTON
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // Navigate to TakeSurveyPage
-                    // Use postId if available, otherwise try to parse id as int
-                    final effectivePostId = survey.postId ?? int.tryParse(survey.id) ?? 0;
-                    if (effectivePostId == 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Cannot take this survey - missing ID')),
-                      );
-                      return;
-                    }
-                    Navigator.pushNamed(
-                      context,
-                      '/take-survey',
-                      arguments: {
-                        'surveyId': survey.id,
-                        'postId': effectivePostId,
-                      },
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryText,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+              // ACTION BUTTONS - Heart and Take Survey in shaded black box
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    // Like button (20%)
+                    Expanded(
+                      flex: 1,
+                      child: OutlinedButton(
+                        onPressed: _isLiking ? null : _toggleLike,
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.grey.shade300),
+                          backgroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: _isLiking
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _isLiked ? Icons.favorite : Icons.favorite_border,
+                                    color: _isLiked ? Colors.red : Colors.grey,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$_likeCount',
+                                    style: const TextStyle(
+                                      color: Colors.black87,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
                     ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Take Survey',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                    const SizedBox(width: 8),
+                    // Take Survey button (80%)
+                    Expanded(
+                      flex: 4,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Navigate to TakeSurveyPage
+                          // Use postId if available, otherwise try to parse id as int
+                          final effectivePostId = survey.postId ?? int.tryParse(survey.id) ?? 0;
+                          if (effectivePostId == 0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Cannot take this survey - missing ID')),
+                            );
+                            return;
+                          }
+                          Navigator.pushNamed(
+                            context,
+                            '/take-survey',
+                            arguments: {
+                              'surveyId': survey.id,
+                              'postId': effectivePostId,
+                            },
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryText,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Take Survey',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ],

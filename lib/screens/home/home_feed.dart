@@ -62,27 +62,11 @@ class _HomeFeedState extends State<HomeFeed> {
     }
   }
 
-  /// Handle filter selection and auto-load more surveys if needed
+  /// Handle filter selection - reload surveys from backend for the selected category
   Future<void> _onFilterChanged(String newFilter) async {
     setState(() => selectedFilter = newFilter);
-    
-    // If filter is not "All", check if we have matching surveys
-    if (newFilter != "All") {
-      final matchingSurveys = _allSurveys.where((s) => s.tags.contains(newFilter)).toList();
-      
-      // If no matching surveys but more data available, keep loading until we find some
-      if (matchingSurveys.isEmpty && _hasMoreData && !_isLoadingMore) {
-        // Try to load more surveys (up to 3 times)
-        int attempts = 0;
-        while (attempts < 3 && matchingSurveys.isEmpty && _hasMoreData && !_isLoadingMore) {
-          await _loadMoreSurveys();
-          attempts++;
-          // Check again after loading
-          final newMatches = _allSurveys.where((s) => s.tags.contains(newFilter)).toList();
-          if (newMatches.isNotEmpty) break;
-        }
-      }
-    }
+    // Reload surveys from backend with the selected category
+    await _loadSurveys(showLoading: true);
   }
 
   /// Load more surveys (next page)
@@ -93,12 +77,21 @@ class _HomeFeedState extends State<HomeFeed> {
     
     try {
       final nextPage = _currentPage + 1;
-      print('HomeFeed: Loading more surveys, page $nextPage...');
-      final backendData = await SurveyAPI.getAllSurveys(page: nextPage, perPage: _perPage);
+      print('HomeFeed: Loading more surveys, page $nextPage, category: $selectedFilter...');
+      final backendData = await SurveyAPI.getAllSurveys(
+        page: nextPage, 
+        perPage: _perPage,
+        category: selectedFilter != "All" ? selectedFilter : null,
+      );
+      
+      // Check backend response length BEFORE filtering to determine if more data exists
+      final backendHasMore = backendData.length >= _perPage;
       
       final newSurveys = backendData
           .map((json) => _parseSurveyFromBackend(json))
           .where((survey) => !survey.archived)
+          // Client-side filter to ensure only matching category surveys are shown
+          .where((survey) => selectedFilter == "All" || survey.tags.contains(selectedFilter))
           .toList();
       
       if (mounted) {
@@ -106,10 +99,10 @@ class _HomeFeedState extends State<HomeFeed> {
           _allSurveys.addAll(newSurveys);
           _currentPage = nextPage;
           _isLoadingMore = false;
-          // If we got fewer than perPage, there's no more data
-          _hasMoreData = newSurveys.length >= _perPage;
+          // Base hasMoreData on backend response, not filtered results
+          _hasMoreData = backendHasMore;
         });
-        print('HomeFeed: Loaded ${newSurveys.length} more surveys. Total: ${_allSurveys.length}');
+        print('HomeFeed: Loaded ${newSurveys.length} matching surveys from ${backendData.length} backend results. Total: ${_allSurveys.length}');
       }
     } catch (e) {
       print('HomeFeed: Error loading more surveys: $e');
@@ -188,24 +181,70 @@ class _HomeFeedState extends State<HomeFeed> {
     
     try {
       // Fetch surveys from backend with pagination
-      print('HomeFeed: Fetching surveys from backend (page 1)...');
-      final backendData = await SurveyAPI.getAllSurveys(page: 1, perPage: _perPage);
+      print('HomeFeed: Fetching surveys from backend (page 1, category: $selectedFilter)...');
+      final backendData = await SurveyAPI.getAllSurveys(
+        page: 1, 
+        perPage: _perPage,
+        category: selectedFilter != "All" ? selectedFilter : null,
+      );
+      
+      // Check backend response length BEFORE filtering
+      final backendHasMore = backendData.length >= _perPage;
       
       final surveys = backendData
           .map((json) => _parseSurveyFromBackend(json))
           // Filter out archived surveys (safety measure - backend should already filter)
           .where((survey) => !survey.archived)
+          // Client-side filter to ensure only matching category surveys are shown
+          .where((survey) => selectedFilter == "All" || survey.tags.contains(selectedFilter))
           .toList();
-      print('HomeFeed: Loaded ${surveys.length} surveys from backend');
+      print('HomeFeed: Loaded ${surveys.length} matching surveys from ${backendData.length} backend results (category: $selectedFilter)');
+      
+      // Auto-load more pages until we have enough surveys (minimum 5) or no more data
+      List<dynamic> allBackendData = List.from(backendData);
+      List<Survey> allSurveys = List.from(surveys);
+      int currentPage = 1;
+      
+      while (allSurveys.length < 5 && backendHasMore && currentPage < 5) {
+        print('HomeFeed: Auto-loading more pages... (current: ${allSurveys.length} surveys, page: ${currentPage + 1})');
+        currentPage++;
+        
+        try {
+          final moreData = await SurveyAPI.getAllSurveys(
+            page: currentPage,
+            perPage: _perPage,
+            category: selectedFilter != "All" ? selectedFilter : null,
+          );
+          
+          if (moreData.isEmpty || moreData.length < _perPage) {
+            print('HomeFeed: No more data available from backend');
+            break;
+          }
+          
+          allBackendData.addAll(moreData);
+          
+          final moreSurveys = moreData
+              .map((json) => _parseSurveyFromBackend(json))
+              .where((survey) => !survey.archived)
+              .where((survey) => selectedFilter == "All" || survey.tags.contains(selectedFilter))
+              .toList();
+          
+          allSurveys.addAll(moreSurveys);
+          print('HomeFeed: Now have ${allSurveys.length} matching surveys');
+        } catch (e) {
+          print('HomeFeed: Error auto-loading page $currentPage: $e');
+          break;
+        }
+      }
       
       if (mounted) {
         setState(() {
-          _allSurveys = surveys;
+          _allSurveys = allSurveys;
           _isLoading = false;
           _hasLoadedOnce = true;
-          _currentPage = 1;
-          // If we got fewer than perPage, there's no more data
-          _hasMoreData = surveys.length >= _perPage;
+          _currentPage = currentPage;
+          // Has more data if last page was full
+          _hasMoreData = allBackendData.isNotEmpty && allBackendData.length % _perPage == 0;
         });
       }
     } catch (e) {
@@ -217,11 +256,21 @@ class _HomeFeedState extends State<HomeFeed> {
         await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
           try {
-            final retryData = await SurveyAPI.getAllSurveys(page: 1, perPage: _perPage);
+            final retryData = await SurveyAPI.getAllSurveys(
+              page: 1, 
+              perPage: _perPage,
+              category: selectedFilter != "All" ? selectedFilter : null,
+            );
+            
+            // Check backend response length BEFORE filtering
+            final backendHasMore = retryData.length >= _perPage;
+            
             final surveys = retryData
                 .map((json) => _parseSurveyFromBackend(json))
                 // Filter out archived surveys (safety measure)
                 .where((survey) => !survey.archived)
+                // Client-side filter to ensure only matching category surveys are shown
+                .where((survey) => selectedFilter == "All" || survey.tags.contains(selectedFilter))
                 .toList();
             if (mounted) {
               setState(() {
@@ -229,7 +278,8 @@ class _HomeFeedState extends State<HomeFeed> {
                 _isLoading = false;
                 _hasLoadedOnce = true;
                 _currentPage = 1;
-                _hasMoreData = surveys.length >= _perPage;
+                // Base hasMoreData on backend response, not filtered results
+                _hasMoreData = backendHasMore;
               });
             }
             return;
@@ -340,14 +390,8 @@ class _HomeFeedState extends State<HomeFeed> {
   @override
   Widget build(BuildContext context) {
     // Determine which surveys to display
-    List<Survey> displaySurveys;
-    if (_showSearchResults) {
-      displaySurveys = _searchResults;
-    } else {
-      displaySurveys = selectedFilter == "All"
-          ? _allSurveys 
-          : _allSurveys.where((s) => s.tags.contains(selectedFilter)).toList();
-    }
+    // Backend now handles category filtering, so no need for local filtering
+    List<Survey> displaySurveys = _showSearchResults ? _searchResults : _allSurveys;
 
     return Column(
       children: [
@@ -561,16 +605,6 @@ class _HomeFeedState extends State<HomeFeed> {
                                     ),
                                   ),
                                   const SizedBox(height: 24),
-                                  if (!_showSearchResults)
-                                    ElevatedButton.icon(
-                                      onPressed: _loadSurveys,
-                                      icon: const Icon(Icons.refresh),
-                                      label: const Text('Refresh'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.primary,
-                                        foregroundColor: Colors.white,
-                                      ),
-                                    ),
                                   if (_showSearchResults)
                                     ElevatedButton.icon(
                                       onPressed: _clearSearch,
@@ -615,6 +649,7 @@ class _HomeFeedState extends State<HomeFeed> {
                                   Expanded(
                                     child: ListView.builder(
                                       controller: _scrollController,
+                                      physics: const AlwaysScrollableScrollPhysics(),
                                       itemCount: displaySurveys.length + (_hasMoreData && !_showSearchResults ? 1 : 0),
                                       itemBuilder: (context, index) {
                                         // Show loading indicator at the bottom

@@ -120,22 +120,26 @@ class SurveyAPI {
   }
 
   /// Get all surveys with pagination support
-  /// GET /api/survey/post/get?page=1&per_page=5
+  /// GET /api/survey/post/get?page=1&per_page=5&category=Technology
   /// Backend Response Format:
   /// {
   ///   "message": [...surveys...],
   ///   "ok": true,
   ///   "status": 200
   /// }
-  static Future<List<dynamic>> getAllSurveys({int page = 1, int perPage = 5}) async {
+  static Future<List<dynamic>> getAllSurveys({int page = 1, int perPage = 5, String? category}) async {
     try {
       final dio = await DioClient.instance;
+      final queryParams = <String, dynamic>{
+        'page': page,
+        'per_page': perPage,
+      };
+      if (category != null && category != 'All') {
+        queryParams['category'] = category;
+      }
       final response = await dio.get(
         '/../survey/post/get',
-        queryParameters: {
-          'page': page,
-          'per_page': perPage,
-        },
+        queryParameters: queryParams,
       );
       
       print('SurveyAPI getAllSurveys: page=$page, perPage=$perPage');
