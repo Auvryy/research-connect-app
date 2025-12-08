@@ -119,20 +119,99 @@ class _ProfileSurveyState extends State<ProfileSurvey> {
     }
   }
 
+  void _showOptionsMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit, color: AppColors.primary),
+              title: const Text('Edit Survey'),
+              onTap: () async {
+                Navigator.pop(context); // Close bottom sheet
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditSurveyPage(survey: widget.survey),
+                  ),
+                );
+                // Handle the returned data
+                if (result != null && result is Map) {
+                  if (result['updated'] == true) {
+                    // Update local status immediately for better UX
+                    if (result['status'] != null) {
+                      final newStatus = result['status'] as String;
+                      setState(() {
+                        _currentStatus = newStatus == 'open';
+                      });
+                      // Notify parent of status change without full reload
+                      if (widget.onStatusChanged != null && widget.survey.postId != null) {
+                        widget.onStatusChanged!(widget.survey.postId!, newStatus);
+                      }
+                    }
+                    // Only trigger full refresh if other fields changed (title, caption, etc.)
+                    if (result['needsRefresh'] == true && widget.onSurveyUpdated != null) {
+                      widget.onSurveyUpdated!();
+                    }
+                  }
+                } else if (result == true && widget.onSurveyUpdated != null) {
+                  // Legacy support for old return type
+                  widget.onSurveyUpdated!();
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.archive, color: Colors.orange),
+              title: const Text('Archive Survey'),
+              onTap: () {
+                Navigator.pop(context); // Close bottom sheet
+                _archiveSurvey();
+              },
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final formattedDate = DateFormat('yMMMd').format(widget.survey.createdAt);
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.symmetric(vertical: 3),
-      elevation: 2,
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary.withOpacity(0.2),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title Row with Edit and Archive Buttons
+            // Title Row with 3-dot Menu
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -142,62 +221,22 @@ class _ProfileSurveyState extends State<ProfileSurvey> {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      color: AppColors.primaryText,
                     ),
                   ),
                 ),
-                // Edit Button
-                if (widget.survey.postId != null)
-                  IconButton(
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => EditSurveyPage(survey: widget.survey),
-                        ),
-                      );
-                      // Handle the returned data
-                      if (result != null && result is Map) {
-                        if (result['updated'] == true) {
-                          // Update local status immediately for better UX
-                          if (result['status'] != null) {
-                            final newStatus = result['status'] as String;
-                            setState(() {
-                              _currentStatus = newStatus == 'open';
-                            });
-                            // Notify parent of status change without full reload
-                            if (widget.onStatusChanged != null && widget.survey.postId != null) {
-                              widget.onStatusChanged!(widget.survey.postId!, newStatus);
-                            }
-                          }
-                          // Only trigger full refresh if other fields changed (title, caption, etc.)
-                          // The status is already handled above
-                          if (result['needsRefresh'] == true && widget.onSurveyUpdated != null) {
-                            widget.onSurveyUpdated!();
-                          }
-                        }
-                      } else if (result == true && widget.onSurveyUpdated != null) {
-                        // Legacy support for old return type
-                        widget.onSurveyUpdated!();
-                      }
-                    },
-                    icon: const Icon(Icons.edit, color: AppColors.primary, size: 20),
-                    tooltip: "Edit Survey",
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                const SizedBox(width: 8),
-                // Archive Button
+                // 3-dot Menu Button
                 if (widget.survey.postId != null)
                   _isArchiving
                       ? const SizedBox(
-                          width: 20,
-                          height: 20,
+                          width: 24,
+                          height: 24,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : IconButton(
-                          onPressed: _archiveSurvey,
-                          icon: const Icon(Icons.archive, color: Colors.orange, size: 20),
-                          tooltip: "Archive Survey",
+                          onPressed: () => _showOptionsMenu(context),
+                          icon: const Icon(Icons.more_vert, color: AppColors.primary, size: 24),
+                          tooltip: "Options",
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),

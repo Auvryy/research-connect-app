@@ -21,7 +21,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late int _selectedTab; // 0 = My Surveys, 1 = Additional Information
-  int _surveyStatusTab = 0; // 0 = All, 1 = Pending, 2 = Approved, 3 = Rejected, 4 = Liked
+  int _surveyStatusTab = 0; // 0 = All, 1 = Pending, 2 = Approved, 3 = Rejected
   List<Survey> _userSurveys = [];
   List<Survey> _rejectedSurveys = [];
   List<Survey> _likedSurveys = [];
@@ -355,21 +355,6 @@ class _ProfilePageState extends State<ProfilePage> {
         emptyIcon = Icons.check_circle;
         emptyIconColor = Colors.green;
         break;
-      case 4: // Liked
-        if (_isLoadingLiked) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32.0),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-        surveysToShow = _likedSurveys;
-        emptyMessage = 'No liked surveys';
-        emptySubMessage = 'Tap the heart on surveys to save them here.';
-        emptyIcon = Icons.favorite_border;
-        emptyIconColor = Colors.purple;
-        break;
       default: // All - Include approved, pending, and rejected surveys
         surveysToShow = [..._userSurveys, ..._rejectedSurveys];
         emptyMessage = 'No surveys yet';
@@ -638,19 +623,6 @@ class _ProfilePageState extends State<ProfilePage> {
                                   }
                                 },
                                 color: Colors.red,
-                              ),
-                              const SizedBox(width: 8),
-                              _SurveyStatusChip(
-                                label: 'Liked',
-                                count: _likedSurveys.length,
-                                isSelected: _surveyStatusTab == 4,
-                                onTap: () {
-                                  setState(() => _surveyStatusTab = 4);
-                                  if (_likedSurveys.isEmpty && !_isLoadingLiked) {
-                                    _loadLikedSurveys();
-                                  }
-                                },
-                                color: Colors.purple,
                               ),
                             ],
                           ),
