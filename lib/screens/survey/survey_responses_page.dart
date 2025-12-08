@@ -749,18 +749,6 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
         return a.compareTo(b);
       });
 
-    double? average;
-    double? min;
-    double? max;
-    double? sum;
-
-    if (numericValues.isNotEmpty) {
-      sum = numericValues.reduce((a, b) => a + b);
-      average = sum / numericValues.length;
-      min = numericValues.reduce((a, b) => a < b ? a : b);
-      max = numericValues.reduce((a, b) => a > b ? a : b);
-    }
-
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -805,27 +793,9 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
                 style: TextStyle(color: Colors.grey[500], fontStyle: FontStyle.italic),
               )
             else ...[
-              // Statistics summary
-              if (numericValues.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatItem('Average', average!.toStringAsFixed(2)),
-                      _buildStatItem('Min', min!.toStringAsFixed(2)),
-                      _buildStatItem('Max', max!.toStringAsFixed(2)),
-                      _buildStatItem('Sum', sum!.toStringAsFixed(2)),
-                    ],
-                  ),
-                ),
+              // Number tally
               if (sortedFrequencyKeys.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text('Number tally', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                Text('Number Tally', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[800])),
                 const SizedBox(height: 8),
                 ...sortedFrequencyKeys.map((key) {
                   final count = frequency[key] ?? 0;
@@ -893,28 +863,6 @@ class _SurveyResponsesPageState extends State<SurveyResponsesPage> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue[800],
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.blue[600],
-          ),
-        ),
-      ],
     );
   }
 

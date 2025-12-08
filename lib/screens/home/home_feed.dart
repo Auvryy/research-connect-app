@@ -62,6 +62,29 @@ class _HomeFeedState extends State<HomeFeed> {
     }
   }
 
+  /// Handle filter selection and auto-load more surveys if needed
+  Future<void> _onFilterChanged(String newFilter) async {
+    setState(() => selectedFilter = newFilter);
+    
+    // If filter is not "All", check if we have matching surveys
+    if (newFilter != "All") {
+      final matchingSurveys = _allSurveys.where((s) => s.tags.contains(newFilter)).toList();
+      
+      // If no matching surveys but more data available, keep loading until we find some
+      if (matchingSurveys.isEmpty && _hasMoreData && !_isLoadingMore) {
+        // Try to load more surveys (up to 3 times)
+        int attempts = 0;
+        while (attempts < 3 && matchingSurveys.isEmpty && _hasMoreData && !_isLoadingMore) {
+          await _loadMoreSurveys();
+          attempts++;
+          // Check again after loading
+          final newMatches = _allSurveys.where((s) => s.tags.contains(newFilter)).toList();
+          if (newMatches.isNotEmpty) break;
+        }
+      }
+    }
+  }
+
   /// Load more surveys (next page)
   Future<void> _loadMoreSurveys() async {
     if (_isLoadingMore || !_hasMoreData) return;
@@ -384,15 +407,23 @@ class _HomeFeedState extends State<HomeFeed> {
                 label: "All",
                 selected: selectedFilter == "All",
                 onSelected: (selected) {
-                  if (selected) setState(() => selectedFilter = "All");
+                  if (selected) _onFilterChanged("All");
                 },
               ),
               const SizedBox(width: 8),
               CustomChoiceChip(
-                label: "Business",
-                selected: selectedFilter == "Business",
+                label: "Academic",
+                selected: selectedFilter == "Academic",
                 onSelected: (selected) {
-                  if (selected) setState(() => selectedFilter = "Business");
+                  if (selected) _onFilterChanged("Academic");
+                },
+              ),
+              const SizedBox(width: 8),
+              CustomChoiceChip(
+                label: "Health",
+                selected: selectedFilter == "Health",
+                onSelected: (selected) {
+                  if (selected) _onFilterChanged("Health");
                 },
               ),
               const SizedBox(width: 8),
@@ -400,15 +431,47 @@ class _HomeFeedState extends State<HomeFeed> {
                 label: "Technology",
                 selected: selectedFilter == "Technology",
                 onSelected: (selected) {
-                  if (selected) setState(() => selectedFilter = "Technology");
+                  if (selected) _onFilterChanged("Technology");
                 },
               ),
               const SizedBox(width: 8),
               CustomChoiceChip(
-                label: "Humanities",
-                selected: selectedFilter == "Humanities",
+                label: "Entertainment",
+                selected: selectedFilter == "Entertainment",
                 onSelected: (selected) {
-                  if (selected) setState(() => selectedFilter = "Humanities");
+                  if (selected) _onFilterChanged("Entertainment");
+                },
+              ),
+              const SizedBox(width: 8),
+              CustomChoiceChip(
+                label: "Lifestyle",
+                selected: selectedFilter == "Lifestyle",
+                onSelected: (selected) {
+                  if (selected) _onFilterChanged("Lifestyle");
+                },
+              ),
+              const SizedBox(width: 8),
+              CustomChoiceChip(
+                label: "Business",
+                selected: selectedFilter == "Business",
+                onSelected: (selected) {
+                  if (selected) _onFilterChanged("Business");
+                },
+              ),
+              const SizedBox(width: 8),
+              CustomChoiceChip(
+                label: "Research",
+                selected: selectedFilter == "Research",
+                onSelected: (selected) {
+                  if (selected) _onFilterChanged("Research");
+                },
+              ),
+              const SizedBox(width: 8),
+              CustomChoiceChip(
+                label: "Marketing",
+                selected: selectedFilter == "Marketing",
+                onSelected: (selected) {
+                  if (selected) _onFilterChanged("Marketing");
                 },
               ),
               const SizedBox(width: 10),

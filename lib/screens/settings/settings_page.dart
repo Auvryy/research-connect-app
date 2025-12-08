@@ -12,8 +12,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool _isDarkMode = false;
-
   Color _getRoleColor(String? role) {
     if (role == null) return AppColors.secondary;
     
@@ -145,19 +143,6 @@ class _SettingsPageState extends State<SettingsPage> {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
-                SwitchListTile(
-                  title: const Text("Dark Mode"),
-                  subtitle: const Text("Toggle dark theme"),
-                  value: _isDarkMode,
-                  activeColor: AppColors.accent1,
-                  onChanged: (bool value) {
-                    setState(() {
-                      _isDarkMode = value;
-                    });
-                    // TODO: Apply theme when theme system is implemented
-                  },
-                ),
-                const Divider(height: 1, thickness: 8, color: AppColors.background),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(

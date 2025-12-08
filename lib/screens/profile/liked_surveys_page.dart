@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/api/survey_api.dart';
 import 'package:inquira/models/survey.dart';
-import 'package:inquira/widgets/profile_survey.dart';
+import 'package:inquira/widgets/survey_card.dart';
 
 class LikedSurveysPage extends StatefulWidget {
   final List<Survey> initialSurveys;
@@ -81,9 +81,12 @@ class _LikedSurveysPageState extends State<LikedSurveysPage> {
                         itemCount: _surveys.length,
                         itemBuilder: (context, index) {
                           final survey = _surveys[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: ProfileSurvey(survey: survey),
+                          return SurveyCard(
+                            survey: survey,
+                            onLikeChanged: () {
+                              // Refresh the list when like status changes
+                              _load();
+                            },
                           );
                         },
                       ),
