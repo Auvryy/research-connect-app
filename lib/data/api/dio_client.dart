@@ -20,6 +20,23 @@ class DioClient {
     return _dio!;
   }
 
+  // Helper: fetch a cookie value by name from the base host
+  static Future<String?> _getCookieValue(String name) async {
+    if (_cookieJar == null) return null;
+    final uri = Uri.parse('http://10.0.2.2:5000');
+    final cookies = await _cookieJar!.loadForRequest(uri);
+    for (final cookie in cookies) {
+      if (cookie.name == name) return cookie.value;
+    }
+    return null;
+  }
+
+  // Helper: choose correct CSRF token (access vs refresh)
+  static Future<String?> _getCsrfToken({bool useRefreshToken = false}) async {
+    final name = useRefreshToken ? 'csrf_refresh_token' : 'csrf_access_token';
+    return _getCookieValue(name);
+  }
+
   static Future<void> init() async {
     if (_dio != null || _initializing) return;
     _initializing = true;
@@ -59,6 +76,24 @@ class DioClient {
       if (_cookieJar != null) {
         dio.interceptors.add(CookieManager(_cookieJar!));
       }
+
+      // Attach CSRF token header from cookies on every request
+      dio.interceptors.add(InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          try {
+            // Decide which CSRF token to use
+            final isRefreshRequest = options.path.contains('/refresh');
+            final csrfToken = await _getCsrfToken(useRefreshToken: isRefreshRequest);
+            if (csrfToken != null) {
+              options.headers['X-CSRF-TOKEN'] = csrfToken;
+            }
+          } catch (e) {
+            // If we fail to inject CSRF, continue without blocking the request
+            print('DioClient: CSRF inject failed: $e');
+          }
+          return handler.next(options);
+        },
+      ));
 
       // Add interceptor for automatic token refresh
       dio.interceptors.add(InterceptorsWrapper(
@@ -184,6 +219,21 @@ class DioClient {
       if (_cookieJar != null) {
         dioOtp.interceptors.add(CookieManager(_cookieJar!));
       }
+
+      // Inject CSRF token for OTP endpoints as well
+      dioOtp.interceptors.add(InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          try {
+            final csrfToken = await _getCsrfToken();
+            if (csrfToken != null) {
+              options.headers['X-CSRF-TOKEN'] = csrfToken;
+            }
+          } catch (e) {
+            print('DioClient OTP: CSRF inject failed: $e');
+          }
+          return handler.next(options);
+        },
+      ));
 
       // Add logging interceptor
       dioOtp.interceptors.add(LogInterceptor(

@@ -282,12 +282,14 @@ class AuthAPI {
         };
       }
 
-      // Build data - backend accepts empty strings
+      // Build data: send only the fields being updated to avoid username collisions
       final Map<String, dynamic> data = {
+        // Backend expects username; keep current one to prevent None.strip error server-side
         'username': currentUserData.username,
-        'school': school ?? currentUserData.school ?? '',
-        'program': program ?? currentUserData.program ?? '',
       };
+      // Include updates if provided, otherwise send existing values (or empty string)
+      data['school'] = school ?? currentUserData.school ?? '';
+      data['program'] = program ?? currentUserData.program ?? '';
 
       // Only validate max length (backend requirement: max 256 chars)
       if (data['school'].toString().length > 256) {
@@ -308,29 +310,45 @@ class AuthAPI {
       print('AuthAPI.updateUserProfile: Sending data: $data');
 
       // Backend endpoint is /api/user/update_data (use /../user path)
-      final response = await DioClient.patch('/../user/update_data', data: data);
+      Future<Map<String, dynamic>> sendUpdate() async {
+        final resp = await DioClient.patch('/../user/update_data', data: data);
+        return resp is Map<String, dynamic>
+            ? resp
+            : {
+                'ok': false,
+                'message': 'Invalid response format',
+              };
+      }
+
+      Map<String, dynamic> response = await sendUpdate();
 
       print('AuthAPI.updateUserProfile: Response received: $response');
 
-      if (response is Map<String, dynamic>) {
-        // If update is successful, update local user data
-        if (response['ok'] == true) {
-          final updatedUser = currentUserData.copyWith(
-            school: school ?? currentUserData.school,
-            program: program ?? currentUserData.program,
-          );
-          await UserInfo.saveUserInfo(updatedUser);
-          currentUser = updatedUser;
-          print('AuthAPI.updateUserProfile: Profile updated locally');
+      // If unauthorized, try refreshing token once then retry
+      final needsLogin = (response['status'] == 401) ||
+          (response['message']?.toString().toLowerCase().contains('login') ?? false);
+      if (!response['ok'] && needsLogin) {
+        print('AuthAPI.updateUserProfile: Unauthorized, attempting token refresh...');
+        final refresh = await AuthAPI.refreshToken();
+        if (refresh['ok'] == true) {
+          print('AuthAPI.updateUserProfile: Token refreshed, retrying update...');
+          response = await sendUpdate();
+          print('AuthAPI.updateUserProfile: Retry response: $response');
         }
-
-        return response;
       }
 
-      return {
-        'ok': false,
-        'message': 'Invalid response format',
-      };
+      // If update is successful, update local user data
+      if (response['ok'] == true) {
+        final updatedUser = currentUserData.copyWith(
+          school: school ?? currentUserData.school,
+          program: program ?? currentUserData.program,
+        );
+        await UserInfo.saveUserInfo(updatedUser);
+        currentUser = updatedUser;
+        print('AuthAPI.updateUserProfile: Profile updated locally');
+      }
+
+      return response;
     } catch (e) {
       print('AuthAPI.updateUserProfile: Error occurred: $e');
       return {
@@ -437,53 +455,70 @@ class AuthAPI {
       await DioClient.init();
 
       // Backend expects PATCH request to /profile_upload with 'profile_pic' field
-      final response = await DioClient.uploadFile(
-        '/profile_upload',
-        imageFile,
-        fieldName: 'profile_pic',
-        method: 'PATCH',
-      );
-      
+      Future<Map<String, dynamic>> sendUpload() async {
+        final resp = await DioClient.uploadFile(
+          '/profile_upload',
+          imageFile,
+          fieldName: 'profile_pic',
+          method: 'PATCH',
+        );
+        return resp is Map<String, dynamic>
+            ? resp
+            : {
+                'status': 500,
+                'ok': false,
+                'message': 'Invalid response format',
+              };
+      }
+
+      // First attempt
+      Map<String, dynamic> response = await sendUpload();
       print('AuthAPI.uploadAvatar: Response received: $response');
 
-      if (response is Map<String, dynamic>) {
-        // If upload is successful, reload user data to get updated profile pic
-        if (response['ok'] == true) {
-          // Fetch updated user data from /login_success
-          try {
-            final userDataResponse = await DioClient.get('/login_success');
-            if (userDataResponse is Map<String, dynamic> && userDataResponse['ok'] == true) {
-              final userData = userDataResponse['message'];
-              if (userData is Map<String, dynamic>) {
-                // Get profile pic and ensure it's null if empty
-                String? profilePicUrl = userData['profile_pic'] as String?;
-                if (profilePicUrl != null && profilePicUrl.trim().isEmpty) {
-                  profilePicUrl = null;
-                }
-                
-                final userInfo = UserInfo(
-                  id: userData['id'] as int?,
-                  username: userData['username'] as String,
-                  profilePicUrl: profilePicUrl,
-                );
-                await UserInfo.saveUserInfo(userInfo);
-                currentUser = userInfo;
-                print('AuthAPI.uploadAvatar: Profile pic URL updated locally');
-              }
-            }
-          } catch (e) {
-            print('AuthAPI.uploadAvatar: Error reloading user data: $e');
-          }
+      // If unauthorized, try a token refresh once and retry
+      final needsLogin = (response['status'] == 401) ||
+          (response['message']?.toString().toLowerCase().contains('login') ?? false);
+      if (!response['ok'] && needsLogin) {
+        print('AuthAPI.uploadAvatar: Detected unauthorized, attempting token refresh...');
+        final refresh = await AuthAPI.refreshToken();
+        if (refresh['ok'] == true) {
+          print('AuthAPI.uploadAvatar: Token refresh succeeded, retrying upload...');
+          response = await sendUpload();
+          print('AuthAPI.uploadAvatar: Retry response: $response');
+        } else {
+          print('AuthAPI.uploadAvatar: Token refresh failed, returning original error');
         }
-
-        return response;
-      } else {
-        return {
-          'status': 500,
-          'ok': false,
-          'message': 'Invalid response format',
-        };
       }
+
+      if (response['ok'] == true) {
+        // Fetch updated user data from /login_success
+        try {
+          final userDataResponse = await DioClient.get('/login_success');
+          if (userDataResponse is Map<String, dynamic> && userDataResponse['ok'] == true) {
+            final userData = userDataResponse['message'];
+            if (userData is Map<String, dynamic>) {
+              // Get profile pic and ensure it's null if empty
+              String? profilePicUrl = userData['profile_pic'] as String?;
+              if (profilePicUrl != null && profilePicUrl.trim().isEmpty) {
+                profilePicUrl = null;
+              }
+              
+              final userInfo = UserInfo(
+                id: userData['id'] as int?,
+                username: userData['username'] as String,
+                profilePicUrl: profilePicUrl,
+              );
+              await UserInfo.saveUserInfo(userInfo);
+              currentUser = userInfo;
+              print('AuthAPI.uploadAvatar: Profile pic URL updated locally');
+            }
+          }
+        } catch (e) {
+          print('AuthAPI.uploadAvatar: Error reloading user data: $e');
+        }
+      }
+
+      return response;
     } catch (e) {
       print('AuthAPI.uploadAvatar: Error occurred: $e');
       return {

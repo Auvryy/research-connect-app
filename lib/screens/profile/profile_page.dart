@@ -481,8 +481,9 @@ class _ProfilePageState extends State<ProfilePage> {
           program: field == 'program' ? result : null,
         );
         if (response['ok'] == true) {
-          if (field == 'school') currentUser = currentUser?.copyWith(school: result);
-          else if (field == 'program') currentUser = currentUser?.copyWith(program: result);
+          final normalized = result.trim();
+          if (field == 'school') currentUser = currentUser?.copyWith(school: normalized.isEmpty ? null : normalized);
+          else if (field == 'program') currentUser = currentUser?.copyWith(program: normalized.isEmpty ? null : normalized);
           if (currentUser != null) await UserInfo.saveUserInfo(currentUser!);
           setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1048,15 +1049,43 @@ class _EditFieldDialogState extends State<_EditFieldDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context), // Cancel - return null
+          onPressed: () async {
+            final discard = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Discard changes?'),
+                content: const Text('Your edits will be lost.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep Editing')),
+                  TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Discard')),
+                ],
+              ),
+            );
+            if (discard == true) Navigator.pop(context);
+          },
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: () {
+          onPressed: () async {
             if (!_formKey.currentState!.validate()) return;
             final newValue = _controller.text.trim();
-            final valueToSave = newValue.isEmpty ? 'N/A' : newValue;
-            Navigator.pop(context, valueToSave); // Return the value to save
+
+            final proceed = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Save changes?'),
+                content: Text('Save ${widget.title.toLowerCase()} update?'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Review')),
+                  TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+                ],
+              ),
+            );
+
+            if (proceed != true) return;
+
+            // Return raw value (can be empty string) to let caller decide display
+            Navigator.pop(context, newValue);
           },
           style: ElevatedButton.styleFrom(backgroundColor: widget.color),
           child: const Text('Save', style: TextStyle(color: Colors.white)),
