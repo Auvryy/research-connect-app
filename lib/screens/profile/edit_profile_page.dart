@@ -14,8 +14,23 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final ImagePicker _picker = ImagePicker();
+  final TextEditingController _usernameController = TextEditingController();
   File? _selectedImage;
   bool _isUploadingAvatar = false;
+  bool _isEditingUsername = false;
+  bool _isUpdatingUsername = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _usernameController.text = currentUser?.username ?? '';
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,70 +101,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
             
             const SizedBox(height: 32),
 
-            // Username Display (Read-only in backend)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.person, color: AppColors.primary),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Username',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          currentUser?.username ?? 'Not set',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Info Box
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: AppColors.primary, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Your username cannot be changed. Only your profile picture can be updated.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // Username Edit Field
+            _buildUsernameField(),
 
             const SizedBox(height: 16),
 
@@ -208,6 +161,192 @@ class _EditProfilePageState extends State<EditProfilePage> {
         ),
       ),
     );
+  }
+
+  Widget _buildUsernameField() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.person, color: AppColors.primary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Username',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ),
+              if (!_isEditingUsername && !_isUpdatingUsername)
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 20),
+                  onPressed: () {
+                    setState(() {
+                      _isEditingUsername = true;
+                    });
+                  },
+                  color: AppColors.primary,
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_isEditingUsername)
+            Column(
+              children: [
+                TextField(
+                  controller: _usernameController,
+                  enabled: !_isUpdatingUsername,
+                  decoration: InputDecoration(
+                    hintText: 'Enter new username',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '4-36 characters, no spaces',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _isUpdatingUsername
+                            ? null
+                            : () {
+                                setState(() {
+                                  _isEditingUsername = false;
+                                  _usernameController.text =
+                                      currentUser?.username ?? '';
+                                });
+                              },
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _isUpdatingUsername
+                            ? null
+                            : _updateUsername,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: _isUpdatingUsername
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Save'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          else
+            Text(
+              currentUser?.username ?? 'Not set',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateUsername() async {
+    final newUsername = _usernameController.text.trim();
+    
+    if (newUsername.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Username cannot be empty'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (newUsername == currentUser?.username) {
+      setState(() {
+        _isEditingUsername = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isUpdatingUsername = true;
+    });
+
+    try {
+      final response = await AuthAPI.updateUsername(newUsername);
+      
+      if (mounted) {
+        if (response['ok'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Username updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          setState(() {
+            _isEditingUsername = false;
+          });
+          // Return true to indicate profile was updated
+          Navigator.pop(context, true);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response['message'] ?? 'Failed to update username'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdatingUsername = false;
+        });
+      }
+    }
   }
 
   Widget _buildFeatureItem(String icon, String text) {

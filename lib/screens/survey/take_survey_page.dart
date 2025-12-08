@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:inquira/constants/colors.dart';
 import 'package:inquira/data/api/survey_api.dart';
 import 'package:inquira/models/survey_question.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TakeSurveyPage extends StatefulWidget {
   final String surveyId;
@@ -524,34 +525,40 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        // Show survey title and description only on first section
         if (isFirst) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2))],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _questionnaire?.title ?? '',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryText),
-                ),
-                if ((_questionnaire?.description ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _questionnaire!.description,
-                    style: const TextStyle(fontSize: 14, color: AppColors.secondaryText, height: 1.5),
-                  ),
-                ],
-              ],
+          // Survey Title
+          Text(
+            _questionnaire?.title ?? '',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primaryText,
+              height: 1.3,
             ),
           ),
+          const SizedBox(height: 12),
+          // Survey Description (survey_content from backend)
+          if ((_questionnaire?.description ?? '').isNotEmpty) ...[
+            Text(
+              _questionnaire!.description,
+              style: TextStyle(
+                fontSize: 15,
+                color: AppColors.secondaryText,
+                height: 1.6,
+              ),
+            ),
+            const SizedBox(height: 24),
+          ] else ...[  
+            const SizedBox(height: 16),
+          ],
+          // Divider
+          Divider(
+            color: Colors.grey.shade300,
+            thickness: 1,
+            height: 1,
+          ),
+          const SizedBox(height: 24),
         ],
         Container(
           width: double.infinity,
@@ -648,6 +655,102 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(question.imageUrl!, height: 180, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(height: 100, color: Colors.grey[200], child: const Center(child: Icon(Icons.broken_image)))),
+              ),
+            ],
+            if (question.videoUrl != null && question.videoUrl!.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.accent1.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.accent1.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.accent1,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.play_circle_outline, color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Video Link',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryText,
+                            ),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () async {
+                            final url = Uri.parse(question.videoUrl!);
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url, mode: LaunchMode.externalApplication);
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Could not open video link')),
+                                );
+                              }
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent1,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Text(
+                                  'Open',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: 4),
+                                Icon(Icons.open_in_new, color: Colors.white, size: 14),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Horizontally scrollable, selectable text for URL
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SelectableText(
+                          question.videoUrl!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.accent1,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
             const SizedBox(height: 20),

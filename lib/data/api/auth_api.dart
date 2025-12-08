@@ -261,6 +261,86 @@ class AuthAPI {
     }
   }
 
+  /// Update username
+  /// Backend endpoint: PATCH /api/user/update_data
+  /// Backend accepts: username (4-36 chars, 1 word only)
+  static Future<Map<String, dynamic>> updateUsername(String username) async {
+    try {
+      print('AuthAPI.updateUsername: Starting username update...');
+      await DioClient.init();
+
+      // Validate username
+      if (username.isEmpty) {
+        return {
+          'status': 400,
+          'ok': false,
+          'message': 'Username cannot be empty',
+        };
+      }
+      if (username.length < 4) {
+        return {
+          'status': 400,
+          'ok': false,
+          'message': 'Username must be at least 4 characters',
+        };
+      }
+      if (username.length > 36) {
+        return {
+          'status': 400,
+          'ok': false,
+          'message': 'Username must not exceed 36 characters',
+        };
+      }
+      if (username.contains(' ')) {
+        return {
+          'status': 400,
+          'ok': false,
+          'message': 'Username must be one word (no spaces)',
+        };
+      }
+
+      print('AuthAPI.updateUsername: Sending username: $username');
+
+      // Get current user info to preserve school and program
+      final currentUserData = await UserInfo.loadUserInfo();
+      
+      final response = await DioClient.patch('/../user/update_data', data: {
+        'username': username,
+        'school': currentUserData?.school ?? '',
+        'program': currentUserData?.program ?? '',
+      });
+
+      print('AuthAPI.updateUsername: Response received: $response');
+
+      if (response is Map<String, dynamic>) {
+        // If successful, update local user data
+        if (response['ok'] == true) {
+          final currentUserData = await UserInfo.loadUserInfo();
+          if (currentUserData != null) {
+            final updatedUser = currentUserData.copyWith(username: username);
+            await UserInfo.saveUserInfo(updatedUser);
+            currentUser = updatedUser;
+            print('AuthAPI.updateUsername: Username updated locally');
+          }
+        }
+        return response;
+      }
+
+      return {
+        'status': 500,
+        'ok': false,
+        'message': 'Invalid response format',
+      };
+    } catch (e) {
+      print('AuthAPI.updateUsername: Error occurred: $e');
+      return {
+        'status': 500,
+        'ok': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
   /// Update user profile information (school, program)
   /// Backend endpoint: PATCH /api/user/update_data
   /// Backend accepts: username, school, program (all optional, max 256 chars each)
