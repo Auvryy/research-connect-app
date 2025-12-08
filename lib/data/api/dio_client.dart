@@ -23,7 +23,8 @@ class DioClient {
   // Helper: fetch a cookie value by name from the base host
   static Future<String?> _getCookieValue(String name) async {
     if (_cookieJar == null) return null;
-    final uri = Uri.parse('http://10.0.2.2:5000');
+    // IMPORTANT: Must match the baseUrl used in init() below
+    final uri = Uri.parse('http://192.168.1.2:5000');
     final cookies = await _cookieJar!.loadForRequest(uri);
     for (final cookie in cookies) {
       if (cookie.name == name) return cookie.value;
@@ -120,7 +121,7 @@ class DioClient {
             try {
               // Create a new dio instance without interceptors to avoid infinite loop
               final refreshDio = Dio(BaseOptions(
-                baseUrl: 'http://10.0.2.2:5000/api/user',
+                baseUrl: 'http://192.168.1.2:5000/api/user',
                 connectTimeout: const Duration(seconds: 30),
                 receiveTimeout: const Duration(seconds: 30),
                 headers: {
@@ -202,7 +203,7 @@ class DioClient {
 
       final dioOtp = Dio(
         BaseOptions(
-          baseUrl: 'http://10.0.2.2:5000/api/otp',
+          baseUrl: 'http://192.168.1.2:5000/api/otp',
           connectTimeout: const Duration(seconds: 30),
           receiveTimeout: const Duration(seconds: 30),
           headers: {
