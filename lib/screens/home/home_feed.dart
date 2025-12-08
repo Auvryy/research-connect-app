@@ -25,7 +25,7 @@ class _HomeFeedState extends State<HomeFeed> {
   
   // Pagination state
   int _currentPage = 1;
-  static const int _perPage = 10;
+  static const int _perPage = 5;
   bool _isLoadingMore = false;
   bool _hasMoreData = true;
   final ScrollController _scrollController = ScrollController();
@@ -42,6 +42,7 @@ class _HomeFeedState extends State<HomeFeed> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -49,6 +50,9 @@ class _HomeFeedState extends State<HomeFeed> {
 
   /// Listen to scroll events for infinite scrolling
   void _onScroll() {
+    // Safety check: ensure scroll position is available and widget is mounted
+    if (!mounted || !_scrollController.hasClients) return;
+    
     if (_scrollController.position.pixels >= 
         _scrollController.position.maxScrollExtent - 200) {
       // Near bottom, load more if not already loading and has more data

@@ -120,14 +120,14 @@ class SurveyAPI {
   }
 
   /// Get all surveys with pagination support
-  /// GET /api/survey/post/get?page=1&per_page=10
+  /// GET /api/survey/post/get?page=1&per_page=5
   /// Backend Response Format:
   /// {
   ///   "message": [...surveys...],
   ///   "ok": true,
   ///   "status": 200
   /// }
-  static Future<List<dynamic>> getAllSurveys({int page = 1, int perPage = 10}) async {
+  static Future<List<dynamic>> getAllSurveys({int page = 1, int perPage = 5}) async {
     try {
       final dio = await DioClient.instance;
       final response = await dio.get(

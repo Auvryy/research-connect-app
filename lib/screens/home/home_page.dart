@@ -124,16 +124,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBody() {
-    switch (_currentIndex) {
-      case 0:
-        return const HomeFeed();
-      case 1:
-        return const ProfilePage(key: ValueKey('profile-others'), forcedTab: 1); // Others only
-      case 3:
-        return const ProfilePage(key: ValueKey('profile-my-surveys'), forcedTab: 0); // My Surveys only
-      default:
-        return const HomeFeed();
-    }
+    // Use IndexedStack to keep all tabs alive and prevent widget recreation
+    return IndexedStack(
+      index: _currentIndex == 0 ? 0 : (_currentIndex == 1 ? 1 : 2),
+      children: const [
+        HomeFeed(), // index 0: Home tab
+        ProfilePage(key: ValueKey('profile-others'), forcedTab: 1), // index 1: Profile/Others
+        ProfilePage(key: ValueKey('profile-my-surveys'), forcedTab: 0), // index 2: My Surveys
+      ],
+    );
   }
 
   @override
