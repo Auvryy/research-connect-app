@@ -431,11 +431,12 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: Text(
-                          _questionnaire!.title,
+                          'Inquira',
                           style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primaryText,
+                            fontFamily: 'Giaza',
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -480,6 +481,130 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Survey Info Card (only on first section)
+                    if (_currentSectionIndex == 0) ...[
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 24),
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 20,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                          border: Border.all(
+                            color: AppColors.accent1.withOpacity(0.2),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Survey Title
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent1.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.description_outlined,
+                                    color: AppColors.accent1,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    _questionnaire!.title,
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primaryText,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // Survey Description
+                            if (_questionnaire!.description.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accent1.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _questionnaire!.description,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: AppColors.secondaryText,
+                                    height: 1.6,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            // Survey Meta Info
+                            const SizedBox(height: 16),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 8,
+                              children: [
+                                if (_questionnaire!.approxTime.isNotEmpty)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.access_time,
+                                        size: 16,
+                                        color: AppColors.accent1.withOpacity(0.7),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _questionnaire!.approxTime,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.accent1.withOpacity(0.8),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                if (_questionnaire!.tags.isNotEmpty)
+                                  ...(_questionnaire!.tags.take(3).map((tag) => Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accent1.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppColors.accent1.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      tag,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.accent1,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ))),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     // Section Header Card
                     Container(
                       width: double.infinity,

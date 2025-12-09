@@ -79,30 +79,86 @@ class QuestionWidget extends StatelessWidget {
         // Video URL link if present
         if (question.videoUrl != null && question.videoUrl!.isNotEmpty) ...[
           const SizedBox(height: 12),
-          InkWell(
-            onTap: () {
-              // Could launch URL here
-            },
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.play_circle_outline, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Video: ${question.videoUrl}',
-                      style: const TextStyle(color: Colors.blue, fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.accent1.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.accent1.withOpacity(0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent1,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.play_circle_outline, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Video Resource',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryText,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () {
+                    // Launch URL - you can implement url_launcher here
+                    Clipboard.setData(ClipboardData(text: question.videoUrl!));
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.accent1.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SelectableText(
+                            question.videoUrl!,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.accent1,
+                              decoration: TextDecoration.underline,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.open_in_new,
+                          size: 16,
+                          color: AppColors.accent1.withOpacity(0.7),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tap to copy link',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryText.withOpacity(0.7),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

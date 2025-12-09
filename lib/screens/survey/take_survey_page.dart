@@ -526,37 +526,102 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
       padding: const EdgeInsets.all(20),
       children: [
         // Show survey title and description only on first section
-        if (isFirst) ...[
-          // Survey Title
-          Text(
-            _questionnaire?.title ?? '',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primaryText,
-              height: 1.3,
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Survey Description (survey_content from backend)
-          if ((_questionnaire?.description ?? '').isNotEmpty) ...[
-            Text(
-              _questionnaire!.description,
-              style: TextStyle(
-                fontSize: 15,
-                color: AppColors.secondaryText,
-                height: 1.6,
+        if (isFirst && _questionnaire != null) ...[
+          // Survey Header Card
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+              border: Border.all(
+                color: AppColors.accent1.withOpacity(0.2),
+                width: 1.5,
               ),
             ),
-            const SizedBox(height: 24),
-          ] else ...[  
-            const SizedBox(height: 16),
-          ],
-          // Divider
-          Divider(
-            color: Colors.grey.shade300,
-            thickness: 1,
-            height: 1,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Survey Title
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent1.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.description_outlined,
+                        color: AppColors.accent1,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _questionnaire!.title,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryText,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                // Survey Description
+                if (_questionnaire!.description.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent1.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _questionnaire!.description,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: AppColors.secondaryText,
+                        height: 1.6,
+                      ),
+                    ),
+                  ),
+                ],
+                // Survey Meta Info
+                if (_questionnaire!.approxTime.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 16,
+                        color: AppColors.accent1.withOpacity(0.7),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${_questionnaire!.approxTime} to complete',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.accent1.withOpacity(0.8),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           ),
           const SizedBox(height: 24),
         ],
@@ -682,7 +747,7 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
                         const SizedBox(width: 12),
                         const Expanded(
                           child: Text(
-                            'Video Link',
+                            'Video Resource',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -690,63 +755,61 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
                             ),
                           ),
                         ),
-                        InkWell(
-                          onTap: () async {
-                            final url = Uri.parse(question.videoUrl!);
-                            if (await canLaunchUrl(url)) {
-                              await launchUrl(url, mode: LaunchMode.externalApplication);
-                            } else {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Could not open video link')),
-                                );
-                              }
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: AppColors.accent1,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Text(
-                                  'Open',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                SizedBox(width: 4),
-                                Icon(Icons.open_in_new, color: Colors.white, size: 14),
-                              ],
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // Horizontally scrollable, selectable text for URL
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: SelectableText(
-                          question.videoUrl!,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.accent1,
-                            fontFamily: 'monospace',
-                          ),
+                    // Full URL displayed with wrapping and clickable
+                    InkWell(
+                      onTap: () async {
+                        final url = Uri.parse(question.videoUrl!);
+                        if (await canLaunchUrl(url)) {
+                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                        } else {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Could not open video link')),
+                            );
+                          }
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.accent1.withOpacity(0.3)),
                         ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: SelectableText(
+                                question.videoUrl!,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.accent1,
+                                  decoration: TextDecoration.underline,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.open_in_new,
+                              size: 16,
+                              color: AppColors.accent1.withOpacity(0.7),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tap to open in browser',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.secondaryText.withOpacity(0.7),
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ],

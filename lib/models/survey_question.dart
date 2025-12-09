@@ -20,9 +20,9 @@ class SurveyQuestionnaire {
   factory SurveyQuestionnaire.fromJson(Map<String, dynamic> json) {
     return SurveyQuestionnaire(
       surveyId: json['pk_survey_id'],
-      title: json['survey_title'],
-      description: json['survey_content'],
-      approxTime: json['survey_approx_time'],
+      title: json['survey_title'] ?? 'Untitled Survey',
+      description: json['survey_content'] ?? '',
+      approxTime: json['survey_approx_time'] ?? '',
       tags: List<String>.from(json['survey_tags'] ?? []),
       targetAudience: List<String>.from(json['survey_target_audience'] ?? []),
       sections: (json['survey_section'] as List)
