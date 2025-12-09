@@ -49,6 +49,17 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
         final questionnaire = SurveyQuestionnaire.fromJson(result['survey']);
         _actualSurveyId = questionnaire.surveyId;
         print('SurveyTakingScreen: Actual survey ID: $_actualSurveyId (widget.surveyId was: ${widget.surveyId})');
+        print('SurveyTakingScreen: Survey status: ${questionnaire.status}');
+        
+        // Check if survey is closed
+        if (questionnaire.status == 'closed') {
+          setState(() {
+            _questionnaire = questionnaire; // Store it so we can show the title
+            _errorMessage = 'This survey is currently closed and not accepting responses.';
+            _isLoading = false;
+          });
+          return;
+        }
         
         // Now check if already answered using the ACTUAL survey ID
         final checkResult = await SurveyAPI.checkIfAnswered(_actualSurveyId!);
@@ -149,6 +160,63 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
     return false;
   }
 
+  void _showExitConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Exit Survey?',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.primaryText,
+            ),
+          ),
+          content: const Text(
+            'Your progress will be lost. Are you sure you want to exit?',
+            style: TextStyle(
+              color: AppColors.secondaryText,
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context), // Close dialog
+              child: const Text(
+                'Continue Survey',
+                style: TextStyle(
+                  color: AppColors.accent1,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.pop(context); // Close survey screen
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Exit',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _submitSurvey() async {
     if (!_canGoNext()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -224,8 +292,14 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
           // Success! Go back with success message
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['message'] ?? 'Survey submitted successfully!'),
+              content: Text(
+                result['message'] ?? 'Survey submitted successfully!',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
               backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
             ),
           );
           Navigator.pop(context, true); // Return true to indicate success
@@ -233,7 +307,14 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result['message'] ?? 'Failed to submit')),
+            SnackBar(
+              content: Text(
+                result['message'] ?? 'Failed to submit',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
           );
         }
       }
@@ -338,13 +419,19 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
       );
     }
 
-    if (_questionnaire == null) {
+    if (_questionnaire == null || _errorMessage != null) {
+      // Check if it's a closed survey error
+      final isClosed = _errorMessage?.contains('closed') ?? false;
+      
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          iconTheme: const IconThemeData(color: AppColors.primaryText),
+          leading: IconButton(
+            icon: const Icon(Icons.close, color: AppColors.primaryText),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
         body: Center(
           child: Padding(
@@ -355,21 +442,37 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: AppColors.error.withOpacity(0.1),
+                    color: (isClosed ? AppColors.primary : AppColors.error).withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+                  child: Icon(
+                    isClosed ? Icons.lock_outline : Icons.error_outline,
+                    size: 64,
+                    color: isClosed ? AppColors.primary : AppColors.error,
+                  ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Failed to Load Survey',
-                  style: TextStyle(
+                Text(
+                  isClosed ? 'Survey Closed' : 'Failed to Load Survey',
+                  style: const TextStyle(
                     fontSize: 24, 
                     fontWeight: FontWeight.bold,
                     color: AppColors.primaryText,
                   ),
                 ),
                 const SizedBox(height: 12),
+                if (_questionnaire != null && isClosed) ...[
+                  Text(
+                    _questionnaire!.title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Text(
                   _errorMessage ?? 'An unexpected error occurred. Please try again.',
                   textAlign: TextAlign.center,
@@ -379,24 +482,34 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Go Back'),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: _loadSurvey,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text('Try Again'),
                     ),
-                  ],
+                    child: const Text('Return to Feed'),
+                  ),
                 ),
+                if (!isClosed) ...[
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: _loadSurvey,
+                    child: const Text(
+                      'Try Again',
+                      style: TextStyle(
+                        color: AppColors.accent1,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -424,18 +537,19 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => _showExitConfirmation(context),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Text(
-                          _questionnaire!.title,
+                          'Inquira',
                           style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primaryText,
+                            fontFamily: 'Giaza',
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -480,6 +594,130 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Survey Info Card (only on first section)
+                    if (_currentSectionIndex == 0) ...[
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 24),
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 20,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                          border: Border.all(
+                            color: AppColors.accent1.withOpacity(0.2),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Survey Title
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent1.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.description_outlined,
+                                    color: AppColors.accent1,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    _questionnaire!.title,
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primaryText,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // Survey Description
+                            if (_questionnaire!.description.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accent1.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _questionnaire!.description,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: AppColors.secondaryText,
+                                    height: 1.6,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            // Survey Meta Info
+                            const SizedBox(height: 16),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 8,
+                              children: [
+                                if (_questionnaire!.approxTime.isNotEmpty)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.access_time,
+                                        size: 16,
+                                        color: AppColors.accent1.withOpacity(0.7),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _questionnaire!.approxTime,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.accent1.withOpacity(0.8),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                if (_questionnaire!.tags.isNotEmpty)
+                                  ...(_questionnaire!.tags.take(3).map((tag) => Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accent1.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppColors.accent1.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      tag,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.accent1,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ))),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     // Section Header Card
                     Container(
                       width: double.infinity,

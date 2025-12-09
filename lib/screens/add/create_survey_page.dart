@@ -18,12 +18,12 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
   final _captionController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _customTimeController = TextEditingController();
-  int _selectedTime = 5;
+  int _selectedTime = 3;
   bool _useCustomTime = false;
   final List<String> _selectedTags = [];
   bool _isLoadingDraft = true;
 
-  final List<int> _availableTimes = [5, 15, 30, 45, 60];
+  final List<int> _availableTimes = [3, 10, 20, 40, 60];
   final List<String> _availableTags = [
     'Academic',
     'Health',
@@ -314,9 +314,26 @@ class _CreateSurveyPageState extends State<CreateSurveyPage> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                ..._availableTimes.map((time) {
+                ..._availableTimes.asMap().entries.map((entry) {
+                  final time = entry.value;
+                  // Define better ranges: 3-5, 10-15, 20-30, 40-60, 60-90
+                  String displayRange;
+                  if (time == 3) {
+                    displayRange = '3-5 min';
+                  } else if (time == 10) {
+                    displayRange = '10-15 min';
+                  } else if (time == 20) {
+                    displayRange = '20-30 min';
+                  } else if (time == 40) {
+                    displayRange = '40-60 min';
+                  } else if (time == 60) {
+                    displayRange = '60-90 min';
+                  } else {
+                    displayRange = '$time min';
+                  }
+                  
                   return ChoiceChip(
-                    label: Text('$time mins'),
+                    label: Text(displayRange),
                     selected: !_useCustomTime && _selectedTime == time,
                     onSelected: (selected) {
                       if (selected) {

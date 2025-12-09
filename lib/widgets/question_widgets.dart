@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:inquira/models/survey_question.dart';
 import 'package:inquira/constants/colors.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class QuestionWidget extends StatelessWidget {
   final SurveyQuestion question;
@@ -79,30 +80,117 @@ class QuestionWidget extends StatelessWidget {
         // Video URL link if present
         if (question.videoUrl != null && question.videoUrl!.isNotEmpty) ...[
           const SizedBox(height: 12),
-          InkWell(
-            onTap: () {
-              // Could launch URL here
-            },
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.play_circle_outline, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Video: ${question.videoUrl}',
-                      style: const TextStyle(color: Colors.blue, fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.accent1.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.accent1.withOpacity(0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent1,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.play_circle_outline, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Video Resource',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryText,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final url = Uri.parse(question.videoUrl!);
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.accent1.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SelectableText(
+                            question.videoUrl!,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.accent1,
+                              decoration: TextDecoration.underline,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.open_in_new,
+                          size: 16,
+                          color: AppColors.accent1.withOpacity(0.7),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Tap to open in browser',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.secondaryText.withOpacity(0.7),
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: question.videoUrl!));
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.copy,
+                            size: 14,
+                            color: AppColors.accent1.withOpacity(0.7),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Copy',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.accent1.withOpacity(0.8),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -254,10 +342,15 @@ class QuestionWidget extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
       hint: const Text('Select an option'),
+      isExpanded: true,
       items: question.choices.map((choice) {
         return DropdownMenuItem(
           value: choice,
-          child: Text(choice),
+          child: Text(
+            choice,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
+          ),
         );
       }).toList(),
       onChanged: (newValue) => onChanged(newValue),

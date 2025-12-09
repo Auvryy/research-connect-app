@@ -6,6 +6,7 @@ class SurveyQuestionnaire {
   final List<String> tags;
   final List<String> targetAudience;
   final List<SurveySection> sections;
+  final String? status; // 'open' or 'closed'
 
   SurveyQuestionnaire({
     required this.surveyId,
@@ -15,19 +16,21 @@ class SurveyQuestionnaire {
     required this.tags,
     required this.targetAudience,
     required this.sections,
+    this.status,
   });
 
   factory SurveyQuestionnaire.fromJson(Map<String, dynamic> json) {
     return SurveyQuestionnaire(
       surveyId: json['pk_survey_id'],
-      title: json['survey_title'],
-      description: json['survey_content'],
-      approxTime: json['survey_approx_time'],
+      title: json['survey_title'] ?? 'Untitled Survey',
+      description: json['survey_content'] ?? '',
+      approxTime: json['survey_approx_time'] ?? '',
       tags: List<String>.from(json['survey_tags'] ?? []),
       targetAudience: List<String>.from(json['survey_target_audience'] ?? []),
       sections: (json['survey_section'] as List)
           .map((s) => SurveySection.fromJson(s))
           .toList(),
+      status: json['status'],
     );
   }
 }
