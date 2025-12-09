@@ -645,6 +645,15 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
                   const SizedBox(height: 4),
               ],
             ),
+            const SizedBox(height: 24),
+          ] else ...[  
+            const SizedBox(height: 16),
+          ],
+          // Divider
+          Divider(
+            color: Colors.grey.shade300,
+            thickness: 1,
+            height: 1,
           ),
           const SizedBox(height: 24),
         ],
