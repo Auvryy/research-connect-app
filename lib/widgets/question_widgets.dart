@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:inquira/models/survey_question.dart';
 import 'package:inquira/constants/colors.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class QuestionWidget extends StatelessWidget {
   final SurveyQuestion question;
@@ -114,9 +115,11 @@ class QuestionWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 InkWell(
-                  onTap: () {
-                    // Launch URL - you can implement url_launcher here
-                    Clipboard.setData(ClipboardData(text: question.videoUrl!));
+                  onTap: () async {
+                    final url = Uri.parse(question.videoUrl!);
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
                   },
                   child: Container(
                     width: double.infinity,
@@ -150,13 +153,42 @@ class QuestionWidget extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Tap to copy link',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondaryText.withOpacity(0.7),
-                    fontStyle: FontStyle.italic,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Tap to open in browser',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.secondaryText.withOpacity(0.7),
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: question.videoUrl!));
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.copy,
+                            size: 14,
+                            color: AppColors.accent1.withOpacity(0.7),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Copy',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.accent1.withOpacity(0.8),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
