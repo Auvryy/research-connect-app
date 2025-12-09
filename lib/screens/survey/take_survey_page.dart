@@ -66,6 +66,8 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
         _actualSurveyId = questionnaire.surveyId;
         print('TakeSurveyPage: Actual survey ID: $_actualSurveyId (postId was: ${widget.postId})');
         print('TakeSurveyPage: Questionnaire has ${questionnaire.sections.length} sections');
+        print('TakeSurveyPage: Survey title: "${questionnaire.title}"');
+        print('TakeSurveyPage: Survey description: "${questionnaire.description}"');
 
         // Now check if already answered using the ACTUAL survey ID
         final checkResult = await SurveyAPI.checkIfAnswered(_actualSurveyId!);
@@ -459,23 +461,26 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     final isLastSection = _currentSectionIndex == totalSections - 1;
     final canProceed = _isSectionComplete(_currentSectionIndex);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(progress),
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: totalSections,
-                onPageChanged: (index) => setState(() => _currentSectionIndex = index),
-                itemBuilder: (context, index) => _buildSectionPage(_questionnaire!.sections[index], isFirst: index == 0),
+    return WillPopScope(
+      onWillPop: _confirmExit,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(progress),
+              Expanded(
+                child: PageView.builder(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: totalSections,
+                  onPageChanged: (index) => setState(() => _currentSectionIndex = index),
+                  itemBuilder: (context, index) => _buildSectionPage(_questionnaire!.sections[index], isFirst: index == 0),
+                ),
               ),
-            ),
-            _buildBottomNavigation(isLastSection, canProceed),
-          ],
+              _buildBottomNavigation(isLastSection, canProceed),
+            ],
+          ),
         ),
       ),
     );
@@ -492,15 +497,23 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
         children: [
           Row(
             children: [
-              IconButton(icon: const Icon(Icons.close_rounded), color: AppColors.primaryText, onPressed: _showExitConfirmation),
+              IconButton(
+                icon: const Icon(Icons.close_rounded),
+                color: AppColors.primaryText,
+                onPressed: _handleExitAttempt,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_questionnaire!.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primaryText), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 2),
-                    Text(_questionnaire!.approxTime, style: const TextStyle(fontSize: 12, color: AppColors.secondaryText)),
+                    if (_questionnaire!.approxTime.isNotEmpty)
+                      Text(
+                        'Estimated time: ${_questionnaire!.approxTime}',
+                        style: const TextStyle(fontSize: 13, color: AppColors.secondaryText),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                   ],
                 ),
               ),
@@ -521,45 +534,121 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
     );
   }
 
+  Future<bool> _confirmExit() async {
+    final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Leave survey?'),
+            content: const Text('Your answers so far will be lost. Do you want to exit?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Stay')),
+              TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Exit')),
+            ],
+          ),
+        ) ??
+        false;
+
+    return shouldExit;
+  }
+
+  void _handleExitAttempt() async {
+    final shouldExit = await _confirmExit();
+    if (shouldExit && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Widget _buildChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.accent1.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.accent1.withOpacity(0.15)),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 13, color: AppColors.primaryText, fontWeight: FontWeight.w600)),
+    );
+  }
+
   Widget _buildSectionPage(SurveySection section, {bool isFirst = false}) {
+    final surveyTitle = (_questionnaire?.title ?? '').trim();
+    final surveyDescription = (_questionnaire?.description ?? '').trim();
+    final tags = _questionnaire?.tags ?? const <String>[];
+    final audiences = _questionnaire?.targetAudience ?? const <String>[];
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        // Show survey title and description only on first section
-        if (isFirst) ...[
-          // Survey Title
-          Text(
-            _questionnaire?.title ?? '',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primaryText,
-              height: 1.3,
+        if (isFirst && _questionnaire != null) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          // Survey Description (survey_content from backend)
-          if ((_questionnaire?.description ?? '').isNotEmpty) ...[
-            Text(
-              _questionnaire!.description,
-              style: TextStyle(
-                fontSize: 15,
-                color: AppColors.secondaryText,
-                height: 1.6,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  surveyTitle.isNotEmpty ? surveyTitle : 'Survey',
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryText,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent1.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.accent1.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Text(
+                    surveyDescription.isNotEmpty ? surveyDescription : 'No description provided.',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: AppColors.secondaryText,
+                      height: 1.6,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (_questionnaire!.approxTime.isNotEmpty)
+                      _buildChip('Time: ${_questionnaire!.approxTime}'),
+                    if (tags.isNotEmpty)
+                      _buildChip('Tags: ${tags.join(', ')}'),
+                    if (audiences.isNotEmpty)
+                      _buildChip('Audience: ${audiences.join(', ')}'),
+                    if (_questionnaire!.approxTime.isEmpty && tags.isEmpty && audiences.isEmpty)
+                      _buildChip('General survey'),
+                  ],
+                ),
+                if (_questionnaire!.approxTime.isNotEmpty || tags.isNotEmpty || audiences.isNotEmpty)
+                  const SizedBox(height: 4),
+              ],
             ),
-            const SizedBox(height: 24),
-          ] else ...[  
-            const SizedBox(height: 16),
-          ],
-          // Divider
-          Divider(
-            color: Colors.grey.shade300,
-            thickness: 1,
-            height: 1,
           ),
           const SizedBox(height: 24),
         ],
+
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -592,6 +681,7 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
           ),
         ),
         const SizedBox(height: 24),
+
         ...section.questions.asMap().entries.map((entry) {
           final index = entry.key;
           final question = entry.value;
@@ -709,9 +799,9 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
                               color: AppColors.accent1,
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Row(
+                            child: const Row(
                               mainAxisSize: MainAxisSize.min,
-                              children: const [
+                              children: [
                                 Text(
                                   'Open',
                                   style: TextStyle(
@@ -729,24 +819,58 @@ class _TakeSurveyPageState extends State<TakeSurveyPage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // Horizontally scrollable, selectable text for URL
+                    // Horizontally scrollable container with selectable text
                     Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.grey.shade300),
                       ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: SelectableText(
-                          question.videoUrl!,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.accent1,
-                            fontFamily: 'monospace',
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SelectableText(
+                                question.videoUrl!,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.accent1,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () {
+                              // Copy to clipboard
+                              Clipboard.setData(ClipboardData(text: question.videoUrl!));
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Video URL copied to clipboard'),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent1.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(
+                                Icons.copy,
+                                size: 16,
+                                color: AppColors.accent1,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
