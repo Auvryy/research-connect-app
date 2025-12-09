@@ -835,31 +835,45 @@ class _EmailSetupDialogState extends State<_EmailSetupDialog> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 12),
-                // Resend OTP and Change Email buttons in a column for better layout
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_resendCountdown > 0)
-                      Text(
-                        'Resend OTP in ${_resendCountdown}s',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      )
-                    else
-                      TextButton(
-                        onPressed: _isLoading ? null : () => _sendOtp(isResend: true),
-                        child: const Text('Resend OTP'),
-                        style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-                      ),
-                    const SizedBox(height: 4),
-                    TextButton.icon(
-                      onPressed: _isLoading ? null : () => setState(() { _isOtpSent = false; _otpController.clear(); _errorMessage = null; _resendTimer?.cancel(); _resendCountdown = 0; }),
-                      icon: const Icon(Icons.arrow_back, size: 16),
-                      label: const Text('Change Email'),
-                      style: TextButton.styleFrom(foregroundColor: Colors.grey[600]),
+                const SizedBox(height: 16),
+                // Resend OTP button
+                if (_resendCountdown > 0)
+                  Center(
+                    child: Text(
+                      'Resend OTP in ${_resendCountdown}s',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
-                  ],
+                  )
+                else
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _isLoading ? null : () => _sendOtp(isResend: true),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Resend OTP'),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                // Change Email button
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: _isLoading ? null : () => setState(() { _isOtpSent = false; _otpController.clear(); _errorMessage = null; _resendTimer?.cancel(); _resendCountdown = 0; }),
+                    icon: const Icon(Icons.arrow_back, size: 16),
+                    label: const Text('Change Email'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.grey[600],
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
                 ),
               ],
               if (_errorMessage != null) ...[

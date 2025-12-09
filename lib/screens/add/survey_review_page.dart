@@ -353,9 +353,17 @@ class _SurveyReviewPageState extends State<SurveyReviewPage> {
             builder: (context) => AlertDialog(
               title: Row(
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 28),
+                  Icon(Icons.check_circle, color: Colors.green, size: 24),
                   const SizedBox(width: 8),
-                  const Text('Survey Submitted!'),
+                  Expanded(
+                    child: Text(
+                      'Survey Submitted!',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ],
               ),
               content: Column(

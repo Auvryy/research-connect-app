@@ -292,8 +292,14 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
           // Success! Go back with success message
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['message'] ?? 'Survey submitted successfully!'),
+              content: Text(
+                result['message'] ?? 'Survey submitted successfully!',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
               backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
             ),
           );
           Navigator.pop(context, true); // Return true to indicate success
@@ -301,7 +307,14 @@ class _SurveyTakingScreenState extends State<SurveyTakingScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result['message'] ?? 'Failed to submit')),
+            SnackBar(
+              content: Text(
+                result['message'] ?? 'Failed to submit',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
           );
         }
       }

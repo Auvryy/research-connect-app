@@ -342,10 +342,15 @@ class QuestionWidget extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
       hint: const Text('Select an option'),
+      isExpanded: true,
       items: question.choices.map((choice) {
         return DropdownMenuItem(
           value: choice,
-          child: Text(choice),
+          child: Text(
+            choice,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
+          ),
         );
       }).toList(),
       onChanged: (newValue) => onChanged(newValue),

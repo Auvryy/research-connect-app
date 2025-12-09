@@ -19,7 +19,7 @@ class SurveyCreation {
     this.title = '',
     this.caption = '',
     this.description = '',
-    this.timeToComplete = 5,
+    this.timeToComplete = 3,
     List<String>? tags,
     List<String>? targetAudience,
     List<SurveyQuestion>? questions,
